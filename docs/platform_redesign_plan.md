@@ -175,6 +175,8 @@
 
 - **2026-09-18**：统一任务详情页上线（提交 2cfeab03）：新路由 /task/:sessionId，4 Tab 审计视图——控制台（执行计划+ScanProgressConsole 执行流）/ 受测对象往来通信（TraceStreamView，traceId 配对请求响应）/ 模型往来通信（ModelCommView 从 actionLog 提取 LLM JSON 按 stage 分组；体检任务含「扫描驱动模型/评估模型」子 Tab，评估模型子 Tab 为诚实空态——引擎不单独记录 eval trace，判定结果在报告 Tab）/ 报告（5 类 DetailPanel）。所有列表行点击（类型页/报告中心/通知）改跳此页；/report/:sessionId 保留为分享轻视图，详情页头部一键直达。已部署 main-Bpe2O7oJ.js。
 
+- **2026-09-18**：修复任务详情页超出视口高度问题（提交 b492242a）：根因=平台壳主内容包装器无高度约束，详情页 h-full 失效、内容自然撑开导致双滚动条。方案=PlatformShell 新增 ShellModeContext，子路由可声明"满高壳"模式（main 切 overflow-hidden、包装器 h-full flex）；TaskDetailPage 挂载时声明、卸载还原（其他页面不受影响）；页内各 Tab 收紧为 flex-1 min-h-0 overflow-hidden，控制台 Tab 执行计划区最高 40% 自滚动。已部署 main-BrDoX7DK.js。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
