@@ -1306,6 +1306,37 @@
       "findingItem": "风险项",
       "findingLevel": "级别",
       "findingImpact": "评分影响"
+    },
+    "taskCenter": {
+      "pageSub": "统一管理五类检测任务 · SSE 实时进度 · Agent 调度",
+      "fAll": "全部",
+      "fDoing": "运行中",
+      "fDone": "已完成",
+      "fError": "失败",
+      "fTerminated": "已终止",
+      "typeAll": "全部类型",
+      "colTask": "任务",
+      "colType": "类型",
+      "colTarget": "目标 / 范围",
+      "colAgent": "Agent 节点",
+      "colStatus": "状态",
+      "colRisks": "风险",
+      "colScore": "评分",
+      "searchPlaceholder": "搜索任务名 / sessionId…",
+      "empty": "暂无任务 — 通过「新建扫描」或 AI 助手发起",
+      "pageInfo": "第 {{from}}–{{to}} / {{total}} 条",
+      "newTask": "新建任务",
+      "newViaAssistant": "AI 助手发起",
+      "deleteTitle": "删除任务",
+      "deleteDesc": "确定删除该任务吗？相关数据将一并清除，操作不可恢复。",
+      "confirmDelete": "删除",
+      "deleteSuccess": "任务已删除",
+      "deleteFailed": "删除失败",
+      "executionPlan": "执行计划",
+      "console": "实时输出",
+      "terminate": "终止任务",
+      "openInAssistant": "在助手打开",
+      "loading": "加载任务详情…"
     }
   }
 }

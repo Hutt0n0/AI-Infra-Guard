@@ -1307,6 +1307,37 @@
       "findingItem": "Finding",
       "findingLevel": "Level",
       "findingImpact": "Impact"
+    },
+    "taskCenter": {
+      "pageSub": "All five scan task types · live SSE progress · agent dispatch",
+      "fAll": "All",
+      "fDoing": "Running",
+      "fDone": "Completed",
+      "fError": "Failed",
+      "fTerminated": "Terminated",
+      "typeAll": "All types",
+      "colTask": "Task",
+      "colType": "Type",
+      "colTarget": "Target / Scope",
+      "colAgent": "Agent Node",
+      "colStatus": "Status",
+      "colRisks": "Risks",
+      "colScore": "Score",
+      "searchPlaceholder": "Search title / sessionId…",
+      "empty": "No tasks yet — start via New Scan or AI Assistant",
+      "pageInfo": "Showing {{from}}–{{to}} of {{total}}",
+      "newTask": "New Task",
+      "newViaAssistant": "Ask AI Assistant",
+      "deleteTitle": "Delete Task",
+      "deleteDesc": "Delete this task? Related data will be removed. This cannot be undone.",
+      "confirmDelete": "Delete",
+      "deleteSuccess": "Task deleted",
+      "deleteFailed": "Delete failed",
+      "executionPlan": "Execution Plan",
+      "console": "Live Output",
+      "terminate": "Terminate",
+      "openInAssistant": "Open in Assistant",
+      "loading": "Loading task detail…"
     }
   }
 }

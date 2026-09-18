@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import PlatformShell from './PlatformShell';
 import AssistantDock from './AssistantDock';
 import DashboardPage from '../../pages/DashboardPage';
+import TaskCenterPage from '../../pages/TaskCenterPage';
 import HelpDocumentPage from '../../pages/HelpDocumentPage';
 
 /**
@@ -16,6 +17,7 @@ export default function PlatformApp() {
         <Route path="/help" element={<HelpDocumentPage />} />
         <Route element={<PlatformShell />}>
           <Route index element={<DashboardPage />} />
+          <Route path="tasks" element={<TaskCenterPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
