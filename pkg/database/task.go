@@ -333,6 +333,39 @@ func (s *TaskStore) GetSessionEventsByType(sessionID string, eventType string) (
 	return messages, nil
 }
 
+// GetLastMessageByType 获取会话中指定类型的最后一条消息（dashboard 聚合用，取 resultUpdate 等）
+func (s *TaskStore) GetLastMessageByType(sessionID string, msgType string) (*TaskMessage, error) {
+	var msg TaskMessage
+	err := s.db.Where("session_id = ? AND type = ?", sessionID, msgType).
+		Order("timestamp DESC").
+		First(&msg).Error
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// SearchUserSessionsFiltered 按任务类型与起始时间过滤会话（dashboard 聚合用，全量无分页）
+func (s *TaskStore) SearchUserSessionsFiltered(username string, taskType string, sinceMs int64) ([]*Session, int64, error) {
+	query := s.visibleSessionsQuery(username)
+	if taskType != "" {
+		query = query.Where("task_type = ?", taskType)
+	}
+	if sinceMs > 0 {
+		query = query.Where("created_at >= ?", sinceMs)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var sessions []*Session
+	err := query.Order("created_at DESC").Find(&sessions).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return sessions, total, nil
+}
+
 // SearchUserSessionsSimple 使用单个查询参数搜索用户的会话，支持在title、content、task_type字段中搜索
 func (s *TaskStore) SearchUserSessionsSimple(username string, searchParams SimpleSearchParams) ([]*Session, int64, error) {
 	query := s.visibleSessionsQuery(username)
@@ -340,6 +373,11 @@ func (s *TaskStore) SearchUserSessionsSimple(username string, searchParams Simpl
 	// 如果指定了任务类型，添加类型过滤
 	if searchParams.TaskType != "" {
 		query = query.Where("task_type = ?", searchParams.TaskType)
+	}
+
+	// 如果指定了状态，添加状态过滤
+	if searchParams.Status != "" {
+		query = query.Where("status = ?", searchParams.Status)
 	}
 
 	// 如果有查询关键词，在多个字段中搜索
@@ -393,6 +431,7 @@ func (s *TaskStore) visibleSessionsQuery(username string) *gorm.DB {
 type SimpleSearchParams struct {
 	Query    string `json:"query"`     // 查询关键词，将在title、content、task_type字段中搜索
 	TaskType string `json:"task_type"` // 任务类型过滤
+	Status   string `json:"status"`    // 任务状态过滤（todo/doing/done/error/terminated，空=全部）
 	Page     int    `json:"page"`      // 页码
 	PageSize int    `json:"page_size"` // 每页大小
 }

@@ -6,6 +6,15 @@
   font-display: swap;
 }
 
+/* Hanken Grotesk 可变字体 (latin 子集, weight 400-700) — 平台标题字体 */
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('/fonts/HankenGrotesk.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 html, body {
   font-family: sans-serif, Inter, -apple-system, Avenir, Helvetica, Arial, "Segoe UI", "Songti SC", SimSun;
 }
@@ -22,7 +31,7 @@ html, body {
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 217.2 91.2% 59.8%;
+    --primary: 239 82% 65%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222.2 84% 4.9%;
@@ -34,8 +43,55 @@ html, body {
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 217.2 91.2% 59.8%;
+    --ring: 239 82% 65%;
     --radius: 0.5rem;
+  }
+
+  /* ============================================================
+     A.I.G Pro 平台设计 token — 与 aig-pro-platform-redesign.html 对齐
+     （平台 UI 专用；旧聊天 UI 不引用这些变量）
+     ============================================================ */
+  :root {
+    color-scheme: light;
+    /* 品牌与表面 */
+    --brand:            #5D5FEF;   /* 品牌主操作色 */
+    --brand-deep:       #4343D5;   /* 主色 hover / 文本级品牌色 */
+    --brand-fixed:      #E1E0FF;   /* 品牌淡底 */
+    --surface:          #F8F9FF;   /* 页面底 */
+    --plat-card:        #FFFFFF;   /* 卡片（避开 shadcn --card HSL 变量名） */
+    --surface-low:      #EFF4FF;
+    --surface-mid:      #E5EEFF;
+    --ink:              #0B1C30;   /* 主文本 */
+    --ink-2:            #464555;   /* 次级文本 */
+    --plat-muted:       #767586;   /* 弱文本/轴标签 */
+    --outline:          #E2E8F0;   /* 发丝边 */
+    --outline-strong:   #C7C4D7;
+    /* 图表调色板 — validate_palette 校验通过 (adjacent ΔE 9.1 / 19.6) */
+    --series-1: #4353D5;  /* 靛蓝(品牌系) */
+    --series-2: #EB6834;  /* 橙 */
+    --series-3: #1BAF7A;  /* 青绿 */
+    --series-4: #EDA100;  /* 黄 */
+    --series-5: #E87BA4;  /* 品红 */
+    /* 严重度有序色带 — ordinal 校验通过 (ΔL≥0.06, 端点 2.17:1) */
+    --sev-1: #A9A9F4; --sev-2: #8484EE; --sev-3: #5D5FEF; --sev-4: #3A3AC4; --sev-5: #23237E;
+    /* 安全评分计量带 (单蓝有序, 校验通过) */
+    --met-1: #7FAFE9; --met-2: #4D8FE0; --met-3: #2A78D6; --met-4: #1F5CB0; --met-5: #0F3F85;
+    /* 状态色 (图标+文字承载, 不裸用) */
+    --st-good:  #0CA30C;  --st-good-t:  #0C7A0C;  --st-good-bg:  #E9F7E9;
+    --st-warn:  #FAB219;  --st-warn-t:  #8A6114;  --st-warn-bg:  #FDF4DC;
+    --st-ser:   #EC835A;  --st-ser-t:   #A04826;  --st-ser-bg:   #FEF0E8;
+    --st-crit:  #D03B3B;  --st-crit-t:  #B02A2A;  --st-crit-bg:  #FDECEB;
+    --st-info:  #3A3AC4;  --st-info-t:  #3333B8;  --st-info-bg:  #ECECFF;
+    /* 图表铬件 */
+    --plat-grid:     #E9ECF4;
+    --plat-axis:     #C9CFDD;
+    --spark-gray:    #A8AEC8;
+    /* 圆角与阴影 */
+    --plat-radius: 16px;
+    --shadow-card: 0 1px 2px rgba(11,28,48,.04), 0 8px 24px rgba(67,83,213,.06);
+    /* 字体 */
+    --font-head: "Hanken Grotesk", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    --font-body: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   }
 }
 

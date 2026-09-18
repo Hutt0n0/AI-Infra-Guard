@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { env } from '../config/env';
+import { fetchTaskSummaries, fetchTaskDetailRaw, assembleTaskFromDetail, mapBackendStatus } from '../lib/taskApi';
 
 // Initial state
 const initialState: AppState = {
@@ -192,30 +193,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loadTasks = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const response = await fetch('/api/v1/app/tasks');
-      const responseData = await response.json();
-      
-      if (responseData.status !== 0) {
-        throw new Error(responseData.message || '获取任务列表失败');
-      }
+      const summaries = await fetchTaskSummaries();
       let hasUnfinishedTask = false;
 
       // Transform API response data into the app's internal format
-      const tasks: Task[] = responseData.data.tasks.map((task: any) => {
+      const tasks: Task[] = summaries.map((task) => {
         // Do not generate a default plan; use an empty array instead
         const plan: ExecutionStep[] = [];
         const taskType = getTaskTypeFromString(task.taskType);
-        const status = task.status === 'done'
-          ? 'completed'
-          : task.status === 'terminated'
-            ? 'terminated'
-            : task.status === 'error'
-              ? 'error'
-              : 'running';
+        const status = mapBackendStatus(task.status);
         if (status === 'running') {
           hasUnfinishedTask = true;
         }
-        
+
         return {
           id: task.sessionId,
           title: task.title,
@@ -224,7 +214,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date(task.createdAt),
           updatedAt: new Date(task.updatedAt),
           completedAt: task.completedAt ? new Date(task.completedAt) : undefined,
-          files: task.files || [],
+          files: [],
+          attachments: [],
           plan,
           messages: [], // The API response has no messages field; initialize to an empty array
           isSubmitted: true, // Tasks loaded from the API are already submitted
@@ -252,206 +243,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loadTask = async (taskId: string) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const response = await fetch(`/api/v1/app/tasks/${taskId}`);
-      const responseData = await response.json();
-      
-      if (responseData.status !== 0) {
-        throw new Error(responseData.message || '获取任务详情失败');
-      }
-      
-      const taskData = responseData.data;
+      const taskData = await fetchTaskDetailRaw(taskId);
 
-      // Parse messages and assemble plan, result and messages
-      let planSteps = [];
-      const stepIdMap = {};
-      const stepTitleMap = {};
-      let result = null;
-      const parsedMessages = [];
-      const statusMessages: Message[] = [];
-      let planUpdate = null;
-      // 1. Find planUpdate
+      // Parse messages and assemble plan, result, traces and messages (shared with ReportPage)
+      const assembled = assembleTaskFromDetail(taskData);
+      const planSteps = assembled.planSteps;
+      const result = assembled.result;
+      const statusMessages: Message[] = assembled.statusMessages;
+      const traces = assembled.traces;
+
+      const parsedMessages: any[] = [];
+      let errorMessage: any = null;
+      // Find error message from raw messages
       for (const msg of taskData.messages) {
-        if (msg.type === 'planUpdate' && msg.event?.tasks) {
-          planUpdate = msg;
-        }
-        if (msg.type === 'newPlanStep') {
-          stepTitleMap[msg.event.title] = msg.event.stepId;
-        }
-      }
-      // 2. Assemble the main steps
-      // Prefer using the stepId carried by the planUpdate task as the main step id
-      // to keep it consistent with subsequent planStepId values; if no stepId is
-      // present, fall back to a title lookup, and finally fall back to the index.
-      if (planUpdate) {
-        planSteps = planUpdate.event.tasks.map((task, idx) => {
-          const step = {
-            id: task.stepId || stepTitleMap[task.title] || `step-${idx}`,
-            title: task.title,
-            status: mapStatusToStepStatus(task.status),
-            progress: task.progress || 0,
-            startTime: task.startedAt ? new Date(task.startedAt) : undefined,
-            endTime: task.completedAt ? new Date(task.completedAt) : undefined,
-            details: task.details || '',
-            subSteps: [],
-          };
-          stepIdMap[step.id] = step;
-          return step;
-        });
-      }
-      let errorMessage = {};
-      // 3. Iterate over messages and categorize them into subSteps of the main step
-      for (const msg of taskData.messages) {
-        // toolUsed
-        if (msg.type === 'toolUsed' && msg.event?.planStepId && Array.isArray(msg.event.tools)) {
-          const step = stepIdMap[msg.event.planStepId];
-          if (step) {
-            step.subSteps.forEach(subStep => {
-              if (subStep.id === msg.event.statusId) {
-                // Save the existing toolUsed data in order to preserve actionLog
-                const existingToolUsed = subStep.toolUsed || [];
-                const existingToolMap = {};
-                existingToolUsed.forEach(tool => {
-                  existingToolMap[tool.toolId] = tool;
-                });
-                
-                subStep.toolUsed = msg.event.tools.map((tool) => {
-                  const toolId = tool.toolId || tool.brief || Math.random().toString();
-                  const existingTool = existingToolMap[toolId];
-                  
-                  return {
-                    id: toolId,
-                    brief: tool.brief,
-                    status: mapStatusToStepStatus(tool.status),
-                    message: tool.message,
-                    result: tool.result,
-                    timestamp: msg.event.timestamp ? new Date(msg.event.timestamp * 1000) : undefined,
-                    tool: tool.tool,
-                    toolId: tool.toolId,
-                    actionLog: existingTool ? existingTool.actionLog || '' : '', // Preserve the existing actionLog
-                  };
-                });
-              }
-            });
-          }
-        }
-        // statusUpdate
-        if (msg.type === 'statusUpdate') {
-          if (msg.event?.planStepId) {
-            const step = stepIdMap[msg.event.planStepId];
-            if (step) {
-              const subStepId = msg.event.id || Math.random().toString();
-              const existingSubStepIndex = step.subSteps.findIndex(subStep => subStep.id === subStepId);
-              const stepStatus = msg.event.agentStaus || msg.event.agentStatus;
-              const rawTimestamp = msg.event.timestamp;
-              
-              const newSubStep = {
-                id: subStepId,
-                brief: msg.event.brief,
-                description: msg.event.description || '',
-                status: mapStatusToStepStatus(stepStatus),
-                message: {},
-                timestamp: rawTimestamp ? new Date(rawTimestamp > 1e12 ? rawTimestamp : rawTimestamp * 1000) : undefined,
-                toolUsed: [],
-              };
-              
-              if (existingSubStepIndex !== -1) {
-                // Preserve the existing toolUsed data; use deep copy to avoid reference issues
-                const existingToolUsed = step.subSteps[existingSubStepIndex].toolUsed;
-                step.subSteps[existingSubStepIndex] = {
-                  ...newSubStep,
-                  toolUsed: existingToolUsed ? existingToolUsed.map(tool => ({
-                    ...tool,
-                    actionLog: tool.actionLog || '', // Explicitly preserve the actionLog field
-                  })) : [],
-                };
-              } else {
-                step.subSteps.push(newSubStep);
-              }
-            }
-          } else if (msg.event?.brief || msg.event?.description) {
-            const rawTimestamp = msg.event.timestamp;
-            statusMessages.push({
-              id: msg.event.id || uuidv4(),
-              type: 'system',
-              brief: msg.event.brief,
-              content: msg.event.description || msg.event.brief || '',
-              timestamp: rawTimestamp ? new Date(rawTimestamp > 1e12 ? rawTimestamp : rawTimestamp * 1000) : (msg.timestamp ? new Date(msg.timestamp) : new Date()),
-            });
-          }
-        }
-        // actionLog
-        if (msg.type === 'actionLog' && msg.event?.planStepId) {
-          const step = stepIdMap[msg.event.planStepId];
-          if (step) {
-            step.subSteps.forEach(subStep => {
-              if (subStep.toolUsed && Array.isArray(subStep.toolUsed)) {
-                subStep.toolUsed.forEach(tool => {
-                  if (tool.toolId === msg.event.actionId) {
-                    tool.actionLog = (tool.actionLog || '') + (msg.event.actionLog || '');
-                  }
-                });
-              }
-            });
-          }
-        }
-        // Parse the result
-        if (msg.type === 'resultUpdate' && msg.event?.result) {
-          result = {
-            result: msg.event.result,
-            timestamp: msg.event.timestamp ? new Date(msg.event.timestamp * 1000) : undefined,
-          };
-        }
-        // Parse errors
         if (msg.type === 'error') {
           errorMessage = {
             id: uuidv4(),
             type: 'error',
-            content: msg.event.message || '未知错误',
+            content: msg.event?.message || '未知错误',
             timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
           };
         }
       }
 
-      // Replay target-communication traces (messageTrace events, agent-scan & redteam)
-      const traces = taskData.messages
-        .filter(msg => msg.type === 'messageTrace' && msg.event)
-        .map(msg => ({
-          id: msg.event.id || msg.id || uuidv4(),
-          traceId: msg.event.traceId || '',
-          direction: msg.event.direction || 'request',
-          tool: msg.event.tool || 'target_dialogue',
-          planStepId: msg.event.planStepId || '',
-          endpoint: msg.event.endpoint || '',
-          phase: msg.event.phase || '',
-          attackMethod: msg.event.attackMethod,
-          vulnerability: msg.event.vulnerability,
-          turn: msg.event.turn,
-          payload: msg.event.payload || '',
-          meta: msg.event.meta,
-          timestamp: msg.event.timestamp || msg.timestamp || 0,
-        }));
-           
-      // If no plan data was returned from the API, use an empty array
-      if (planSteps.length === 0) {
-        planSteps = [];
-      }
-      // For terminal-status tasks, close out any plan step still marked 'doing' so
-      // historical replay does not leave step cards spinning forever
-      if (['done', 'terminated', 'error'].includes(taskData.status)) {
-        planSteps = planSteps.map(step =>
-          step.status === 'doing'
-            ? {
-                ...step,
-                status: 'done' as const,
-                endTime: step.endTime || new Date(taskData.updatedAt || Date.now()),
-                details: step.details || (taskData.status === 'terminated' ? '任务已终止' : ''),
-                subSteps: step.subSteps?.map(sub =>
-                  sub.status === 'doing' ? { ...sub, status: 'done' as const } : sub
-                ),
-              }
-            : step
-        );
-      }
       // Assemble the other messages
       // 1. User message
       parsedMessages.push({
@@ -475,14 +289,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
       // 4. Result message
       // Add the result message only when the task status is done
-      if (taskData.status === 'done') {
+      if (taskData.status === 'done' && result) {
         const taskType = getTaskTypeFromString(taskData.taskType || '');
-        let resultMessage: any = {
+        const resultMessage: any = {
           type: 'result',
           timestamp: result.timestamp,
           result: result.result,
         };
-        
+
         // Set the corresponding result field based on the task type
         if (taskType === 'AI-Infra-Scan') {
           resultMessage.infraScanResult = result.result;
@@ -495,7 +309,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } else {
           resultMessage.mcpResult = result.result;
         }
-        
+
         parsedMessages.push(resultMessage);
       }
       // 5. Error message (if any)
@@ -506,20 +320,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (statusMessages.length > 0) {
         parsedMessages.push(...statusMessages);
       }
-      // 4. Task execution message
       const task = {
         id: taskData.sessionId,
         title: taskData.title,
         type: getTaskTypeFromString(taskData.taskType || ''), // Use the actual task type returned by the API
-        status: (
-          taskData.status === 'done'
-            ? 'completed'
-            : taskData.status === 'terminated'
-              ? 'terminated'
-              : taskData.status === 'error'
-                ? 'error'
-                : 'running'
-        ) as TaskStatus, // Map status
+        status: mapBackendStatus(taskData.status) as TaskStatus, // Map status
         createdAt: new Date(taskData.createdAt),
         updatedAt: new Date(taskData.createdAt), // Use createdAt when updatedAt is absent
         completedAt: taskData.status === 'done' ? new Date(taskData.createdAt) : undefined,

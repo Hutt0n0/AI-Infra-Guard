@@ -177,7 +177,8 @@ func RunWebServer(options *version.Options) {
 				collections.GET("", HandleList(PromptCollectionsRoot, promptCollectionLoadFile))
 				collections.POST("", HandleCreate(promptCollectionReadAndSave))
 				collections.PUT("/:id", HandleEdit(promptCollectionUpdateFunc))
-				collections.DELETE("", HandleDelete(promptCollectionDeleteFunc))
+				// HandleDelete 读取 c.Param("id") —— 路由必须注册参数（原 DELETE("") 恒 400）
+				collections.DELETE("/:id", HandleDelete(promptCollectionDeleteFunc))
 			}
 			agentConfigs := knowledge.Group("/agent")
 			{
@@ -277,6 +278,14 @@ func RunWebServer(options *version.Options) {
 		{
 			// 只需要WebSocket入口
 			agents.GET("/ws", agentManager.HandleAgentWebSocket())
+		}
+		// 5. Dashboard 聚合（平台安全总览）
+		dashboard := v1.Group("/dashboard")
+		dashboard.Use(setupIdentityMiddleware())
+		{
+			dashboard.GET("/summary", func(c *gin.Context) {
+				HandleDashboardSummary(c, taskManager)
+			})
 		}
 		// 提供给第三方的api
 		taskApi := appSecurity.Group("/taskapi")
