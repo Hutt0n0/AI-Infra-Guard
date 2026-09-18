@@ -177,6 +177,8 @@
 
 - **2026-09-18**：修复任务详情页超出视口高度问题（提交 b492242a）：根因=平台壳主内容包装器无高度约束，详情页 h-full 失效、内容自然撑开导致双滚动条。方案=PlatformShell 新增 ShellModeContext，子路由可声明"满高壳"模式（main 切 overflow-hidden、包装器 h-full flex）；TaskDetailPage 挂载时声明、卸载还原（其他页面不受影响）；页内各 Tab 收紧为 flex-1 min-h-0 overflow-hidden，控制台 Tab 执行计划区最高 40% 自滚动。已部署 main-BrDoX7DK.js。
 
+- **2026-09-18**：新建扫描三问题修复（提交 efe3f66a）：①Agent扫描表单补「扫描类型」技能子集选择（10 项 chip + 全部按钮，空选=全量，走既有 params.skills → --skills 链路）；②发起扫描后立即跳 /task/:sessionId 统一详情页；③详情页"未正常渲染"根因=静态服务无 Cache-Control，浏览器启发式缓存旧 index.html 引用已清理的旧 hash bundle → 修复：index.html no-cache、hash 资源 immutable 一年缓存、其余 no-cache。Playwright zh-CN 实测：技能 chips 可交互、详情页 4 Tab 全渲染 0 JS 错误、缓存头 live 生效。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
