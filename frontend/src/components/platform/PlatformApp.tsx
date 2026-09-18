@@ -1,6 +1,5 @@
 import * as React from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import PlatformShell from './PlatformShell';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';import PlatformShell from './PlatformShell';
 import AssistantDock from './AssistantDock';
 import DashboardPage from '../../pages/DashboardPage';
 import TaskCenterPage from '../../pages/TaskCenterPage';
@@ -24,12 +23,8 @@ export default function PlatformApp() {
         <Route element={<PlatformShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="tasks" element={<TaskCenterPage />} />
-          {/* 5 类扫描能力独立菜单（历史任务 + 指标） */}
-          <Route path="scan/agent" element={<ScanTypePage />} />
-          <Route path="scan/skill" element={<ScanTypePage />} />
-          <Route path="scan/mcp" element={<ScanTypePage />} />
-          <Route path="scan/redteam" element={<ScanTypePage />} />
-          <Route path="scan/infra" element={<ScanTypePage />} />
+          {/* 5 类扫描能力独立菜单（历史任务 + 指标）— key 强制类型切换时整页重挂载 */}
+          <Route path="scan/:scanType" element={<ScanTypePageWithKey />} />
           {/* 新建扫描表单（Topbar CTA / 类型页「新建此类扫描」入口） */}
           <Route path="scan" element={<NewScanPage />} />
           <Route path="reports" element={<ReportsPage />} />
@@ -51,4 +46,10 @@ function AssistantDockOnlyOnShell() {
   // 简单判断：用 pathname 排除
   if (location.pathname.startsWith('/help')) return null;
   return <AssistantDock />;
+}
+
+/** ScanTypePage 带 key 包装 — scanType 变化时强制重挂载，保证状态/数据完全隔离 */
+function ScanTypePageWithKey() {
+  const location = useLocation();
+  return <ScanTypePage key={location.pathname} />;
 }

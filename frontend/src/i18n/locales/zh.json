@@ -1246,7 +1246,12 @@
       "brandSub": "AI RED TEAM PLATFORM",
       "administrator": "管理员",
       "poisonDetect": "大模型API投毒检测",
-      "skillMarket": "AI 安全技能市场"
+      "skillMarket": "AI 安全技能市场",
+      "agentScan": "Agent扫描",
+      "skillScan": "Skill扫描",
+      "mcpScan": "MCP扫描",
+      "modelRedteamReport": "大模型安全体检",
+      "aiInfraScan": "AI基础设施扫描"
     },
     "topbar": {
       "searchPlaceholder": "搜索目标、CVE、任务…",

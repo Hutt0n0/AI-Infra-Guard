@@ -1247,7 +1247,12 @@
       "brandSub": "AI RED TEAM PLATFORM",
       "administrator": "Administrator",
       "poisonDetect": "LLM API Poisoning Detection",
-      "skillMarket": "AI Security Skill Market"
+      "skillMarket": "AI Security Skill Market",
+      "agentScan": "Agent Scan",
+      "skillScan": "Skill Scan",
+      "mcpScan": "MCP Scan",
+      "modelRedteamReport": "LLM Security Check",
+      "aiInfraScan": "AI Infra Scan"
     },
     "topbar": {
       "searchPlaceholder": "Search targets, CVEs, tasks…",

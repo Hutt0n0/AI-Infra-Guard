@@ -29,6 +29,12 @@ export default function ScanTypePage() {
   const { scanType } = useParams<{ scanType: string }>();
   const navigate = useNavigate();
   const { t, ready } = useTranslation();
+  // 未知类型（含 /scan/xxx 乱写）重定向到默认能力页
+  React.useEffect(() => {
+    if (!scanType || !SCAN_TYPES[scanType]) {
+      navigate('/scan/agent', { replace: true });
+    }
+  }, [scanType, navigate]);
   const meta = SCAN_TYPES[scanType ?? ''] ?? SCAN_TYPES.agent;
 
   const [stats, setStats] = React.useState<ScanTypeStats | null>(null);
