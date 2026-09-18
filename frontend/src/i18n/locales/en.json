@@ -1338,6 +1338,22 @@
       "terminate": "Terminate",
       "openInAssistant": "Open in Assistant",
       "loading": "Loading task detail…"
+    },
+    "ruleLibrary": {
+      "pageSub": "Fingerprints · CVEs · eval datasets · MCP plugins · agent configs — unified knowledge management, live with scan engines",
+      "tabVul": "Vulnerabilities (CVE)",
+      "tabFp": "Fingerprints",
+      "tabEval": "Eval Datasets",
+      "tabMcp": "MCP Plugins",
+      "statFp": "Fingerprint rules",
+      "statVul": "CVE rules",
+      "statEval": "Eval datasets",
+      "statMcp": "MCP plugin rules",
+      "statAgents": "Agent configs",
+      "sync": "Sync Official Rules",
+      "syncStarted": "Rule sync started",
+      "syncFailed": "Sync failed",
+      "newRule": "New Rule"
     }
   }
 }

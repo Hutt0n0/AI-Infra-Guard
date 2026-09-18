@@ -1337,6 +1337,22 @@
       "terminate": "终止任务",
       "openInAssistant": "在助手打开",
       "loading": "加载任务详情…"
+    },
+    "ruleLibrary": {
+      "pageSub": "指纹 · CVE · 评测集 · MCP 插件 · Agent 配置 — 统一知识库管理，与扫描引擎实时联动",
+      "tabVul": "漏洞库 CVE",
+      "tabFp": "指纹库",
+      "tabEval": "评测集",
+      "tabMcp": "MCP 插件",
+      "statFp": "指纹规则",
+      "statVul": "CVE 规则",
+      "statEval": "评测数据集",
+      "statMcp": "MCP 插件规则",
+      "statAgents": "Agent 配置",
+      "sync": "同步官方规则",
+      "syncStarted": "规则同步已启动",
+      "syncFailed": "同步失败",
+      "newRule": "新建规则"
     }
   }
 }
