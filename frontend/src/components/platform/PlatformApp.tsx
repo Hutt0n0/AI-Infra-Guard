@@ -4,6 +4,7 @@ import PlatformShell from './PlatformShell';
 import AssistantDock from './AssistantDock';
 import DashboardPage from '../../pages/DashboardPage';
 import TaskCenterPage from '../../pages/TaskCenterPage';
+import NewScanPage from '../../pages/NewScanPage';
 import HelpDocumentPage from '../../pages/HelpDocumentPage';
 
 /**
@@ -18,6 +19,7 @@ export default function PlatformApp() {
         <Route element={<PlatformShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="tasks" element={<TaskCenterPage />} />
+          <Route path="scan" element={<NewScanPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

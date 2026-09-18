@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Search, Plus, Trash2 } from 'lucide-react';
 import { PageHeader, FilterChips, FilterRow, FilterSeparator } from '../components/platform/primitives';
@@ -31,6 +31,7 @@ const PAGE_SIZE = 20;
 /** 任务中心 — 状态/类型筛选 + 客户端分页 + ?sessionId= 直达详情 */
 export default function TaskCenterPage() {
   const { t, ready } = useTranslation();
+  const navigate = useNavigate();
   const { state, actions } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -131,7 +132,7 @@ export default function TaskCenterPage() {
               </button>
               <button
                 type="button"
-                onClick={() => { window.location.hash = ''; window.history.pushState({}, '', '/scan'); window.dispatchEvent(new PopStateEvent('popstate')); }}
+                onClick={() => navigate('/scan')}
                 className="inline-flex items-center gap-[7px] rounded-[11px] px-[15px] py-2 text-[13px] font-semibold text-white cursor-pointer hover:opacity-90"
                 style={{ background: 'var(--brand)', boxShadow: '0 6px 16px rgba(93,95,239,.32)' }}
               >
