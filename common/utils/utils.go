@@ -477,6 +477,13 @@ func RunCmd(dir, name string, arg []string, callback func(line string)) error {
 	return RunCmdWithContext(context.Background(), dir, name, arg, callback)
 }
 
+// RunCmdWithContext 在独立进程组中执行命令，ctx 取消时终止整个进程组。
+//
+// 为什么不用 exec.CommandContext 的默认行为：ctx 取消时它只 SIGKILL 直接子进程。
+// 本项目的子命令是 `uv run xxx.py`，uv 会再 spawn python 孙进程；SIGKILL 不可
+// 捕获，uv 来不及转发信号就死了，python 成为孤儿进程继续运行（越狱评测曾出现
+// 任务已终止、攻击仍在持续）。Setpgid 把子进程放入独立进程组后，可对整个组
+// 发信号，确保 uv 及其所有后代一起退出。
 func RunCmdWithContext(ctx context.Context, dir, name string, arg []string, callback func(line string)) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -486,6 +493,8 @@ func RunCmdWithContext(ctx context.Context, dir, name string, arg []string, call
 	cmd := exec.CommandContext(ctx, name, arg...)
 	cmd.Dir = dir
 	cmd.Env = os.Environ()
+	// 独立进程组：ctx 取消时 kill 整个组（uv + python 及其所有子进程）
+	cmd.SysProcAttr = sysProcAttrForProcessGroup()
 	// 获取命令行
 	cmdStr := name + " " + strings.Join(arg, " ")
 	gologger.Infof("开始执行命令: %s", cmdStr)
@@ -530,8 +539,17 @@ func RunCmdWithContext(ctx context.Context, dir, name string, arg []string, call
 		return err
 	}
 
-	// 等待命令执行完成
-	cmdErr := cmd.Wait()
+	// 等待命令退出；ctx 取消时终止整个进程组。
+	// CommandContext 的内部 watcher 只 kill 进程组长本身，uv 被 SIGKILL
+	// 后无法转发信号给 python，这里补一层组级终止兜底。
+	waitErr := make(chan error, 1)
+	go func() { waitErr <- cmd.Wait() }()
+	select {
+	case err = <-waitErr:
+	case <-ctx.Done():
+		killProcessGroup(cmd.Process.Pid)
+		err = <-waitErr // 进程组退出后 Wait 返回，避免僵尸进程
+	}
 
 	// 等待读取完成并检查读取错误
 	readErr := <-done
@@ -543,8 +561,8 @@ func RunCmdWithContext(ctx context.Context, dir, name string, arg []string, call
 	if readErr != nil {
 		return readErr
 	}
-	if cmdErr != nil {
-		return cmdErr
+	if err != nil {
+		return err
 	}
 
 	return nil

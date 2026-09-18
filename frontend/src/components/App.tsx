@@ -14,6 +14,9 @@ import { useVersionCheck } from '../hooks/useVersionCheck';
  * 平台壳入口（阶段 3 重构）：
  * 旧聊天工作台三栏（TaskSidebar | ChatArea | DetailPanel）由 PlatformApp +
  * AssistantDock（浮球抽屉）替代；/report /poison-detect 保留。
+ *
+ * dev(ac3053a6) 的「执行控制台结束后仍可达」能力在平台层的等价实现位于
+ * platform/task/TaskDetailPane.tsx（8.6.2）——本文件不再承载旧工作台状态。
  */
 const PlatformEntry: React.FC = () => {
   // Check for a new platform version on page open and once per day; notify the user when available

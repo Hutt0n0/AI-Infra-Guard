@@ -332,6 +332,7 @@
       "riskReport": "查看风险报告",
       "agentScan": "查看安全报告"
     },
+    "openConsole": "执行控制台",
     "error": "错误",
     "unknownError": "未知错误",
     "serverError": "服务器返回错误，请稍后重试",
