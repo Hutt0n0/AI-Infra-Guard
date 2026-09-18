@@ -89,7 +89,8 @@ export default function NewScanPage() {
             toast.success('模板已保存');
           }
         }
-        navigate(`/tasks?sessionId=${sessionId}`);
+        // 立即跳转到新任务的统一详情页（控制台/通信/模型/报告）
+        navigate(`/task/${sessionId}`);
       } else {
         toast.error(result.message || '创建任务失败');
       }

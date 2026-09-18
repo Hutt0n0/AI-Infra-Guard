@@ -4,6 +4,7 @@ import { modelApi } from '../../../lib/modelApi';
 import { agentApi } from '../../../lib/agentApi';
 import { evaluationApi } from '../../../lib/evaluationApi';
 import AttackMethodSelector from '../../floatingInputArea/AttackMethodSelector';
+import { AGENT_SCAN_SKILLS } from '../../floatingInputArea/FloatingInputArea';
 import { shouldShowModelButton, shouldShowEvalModelButton } from '../../../utils/taskUtils';
 import { buildTaskParams } from '../../../lib/taskCreate';
 import { SectionCard } from '../primitives';
@@ -64,6 +65,8 @@ export function ScanForm({
   const [selectedEvalModel, setSelectedEvalModel] = React.useState<ModelItem | undefined>();
   const [selectedAttackMethods, setSelectedAttackMethods] = React.useState<string[]>([]);
   const [selectedAgent, setSelectedAgent] = React.useState<string | undefined>();
+  // Agent-Scan 技能子集：空数组 = 全量扫描（默认），选中部分则只跑所选
+  const [selectedSkills, setSelectedSkills] = React.useState<string[]>([]);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   // 切换类型时清空状态
@@ -73,6 +76,7 @@ export function ScanForm({
     setSelectedEvalModel(undefined);
     setSelectedAttackMethods([]);
     setSelectedAgent(undefined);
+    setSelectedSkills([]);
     setAttachmentFiles([]);
     setSubmitError(null);
   }, [service.id]);
@@ -144,7 +148,7 @@ export function ScanForm({
         maxEvaluationCount: -1,
         selectedAttackMethods,
         selectedAgent,
-        selectedSkills: [],
+        selectedSkills,
         selectedTargetAgent: undefined,
       },
       attachmentFiles,
@@ -255,6 +259,51 @@ export function ScanForm({
                 ))}
               </select>
             </FieldBox>
+          </div>
+        )}
+
+        {/* 扫描类型 / 技能子集（Agent-Scan）——默认全量，选择后只跑所选 */}
+        {showAgent && (
+          <div>
+            <div className="flex items-center mb-1.5">
+              <FieldLabel>扫描类型（不选 = 全部 10 项）</FieldLabel>
+              <button
+                type="button"
+                onClick={() => setSelectedSkills([])}
+                className={cn(
+                  'ml-auto text-[11px] font-semibold rounded-full px-2.5 py-0.5 cursor-pointer transition-colors',
+                  selectedSkills.length === 0 ? 'text-white' : 'text-plat-ink-2 border hover:bg-plat-surface-low'
+                )}
+                style={
+                  selectedSkills.length === 0
+                    ? { background: 'var(--brand)' }
+                    : { borderColor: 'var(--outline)' }
+                }
+              >
+                全部
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {AGENT_SCAN_SKILLS.map(skill => {
+                const selected = selectedSkills.includes(skill.id);
+                return (
+                  <button
+                    key={skill.id}
+                    type="button"
+                    onClick={() => setSelectedSkills(prev =>
+                      prev.includes(skill.id) ? prev.filter(s => s !== skill.id) : [...prev, skill.id]
+                    )}
+                    className={cn(
+                      'rounded-full border px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors',
+                      selected ? 'text-white border-transparent' : 'bg-white text-plat-ink-2 hover:bg-plat-surface-low'
+                    )}
+                    style={selected ? { background: 'var(--brand)' } : { borderColor: 'var(--outline)' }}
+                  >
+                    {skill.zh}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
