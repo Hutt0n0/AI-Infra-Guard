@@ -1474,6 +1474,30 @@
       "failed": "失败",
       "started": "已开始",
       "terminated": "已终止"
+    },
+    "scanType": {
+      "pageSub": "该能力的历史任务与结果指标 · 点击右上角「新建扫描」发起新任务",
+      "colTask": "任务",
+      "colType": "类型",
+      "colStatus": "状态",
+      "colRisks": "风险",
+      "colScore": "评分",
+      "loading": "加载任务数据…",
+      "empty": "该能力暂无任务 — 点击右上角「新建扫描」发起",
+      "total": "共 {{count}} 个任务",
+      "newScan": "新建此类扫描",
+      "kpiTotal": "累计任务",
+      "kpiRunning": "{{count}} 个运行中",
+      "kpiAvgScore": "平均评分",
+      "kpiLatest": "最近 {{score}} 分",
+      "kpiScoreHint": "已完成任务的评分均值",
+      "kpiRisks": "风险发现",
+      "kpiRiskHint": "已完成任务的风险发现总数",
+      "kpiDone": "已完成",
+      "kpiErrors": "{{count}} 次失败",
+      "kpiDoneHint": "含历史累计",
+      "unitRuns": "次",
+      "unitFindings": "项"
     }
   }
 }

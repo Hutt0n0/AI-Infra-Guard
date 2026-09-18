@@ -1475,6 +1475,30 @@
       "failed": "failed",
       "started": "started",
       "terminated": "terminated"
+    },
+    "scanType": {
+      "pageSub": "Historical tasks and result metrics for this capability · use \"New Scan\" (top right) to start",
+      "colTask": "Task",
+      "colType": "Type",
+      "colStatus": "Status",
+      "colRisks": "Risks",
+      "colScore": "Score",
+      "loading": "Loading tasks…",
+      "empty": "No tasks for this capability yet — use \"New Scan\" (top right) to start",
+      "total": "{{count}} tasks",
+      "newScan": "New scan of this type",
+      "kpiTotal": "Total Tasks",
+      "kpiRunning": "{{count}} running",
+      "kpiAvgScore": "Avg Score",
+      "kpiLatest": "Latest {{score}}",
+      "kpiScoreHint": "Mean score of completed tasks",
+      "kpiRisks": "Risk Findings",
+      "kpiRiskHint": "Total findings across completed tasks",
+      "kpiDone": "Completed",
+      "kpiErrors": "{{count}} failed",
+      "kpiDoneHint": "Historical aggregate",
+      "unitRuns": "",
+      "unitFindings": ""
     }
   }
 }

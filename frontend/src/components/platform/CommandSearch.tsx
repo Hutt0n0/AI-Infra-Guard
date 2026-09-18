@@ -23,8 +23,11 @@ export default function CommandSearch({
   const navItems = [
     { key: 'dashboard', to: '/' },
     { key: 'tasks', to: '/tasks' },
-    { key: 'scan', to: '/scan' },
-    { key: 'reports', to: '/reports' },
+    { key: 'agentScan', to: '/scan/agent' },
+    { key: 'skillScan', to: '/scan/skill' },
+    { key: 'mcpScan', to: '/scan/mcp' },
+    { key: 'modelRedteamReport', to: '/scan/redteam' },
+    { key: 'aiInfraScan', to: '/scan/infra' },
     { key: 'poisonDetect', to: '/poison-detect' },
     { key: 'knowledge', to: '/knowledge' },
     { key: 'agents', to: '/agents' },

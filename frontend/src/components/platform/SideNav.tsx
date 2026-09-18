@@ -2,8 +2,8 @@ import * as React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  LayoutDashboard, ListChecks, ScanSearch, ShieldCheck, FileBarChart2,
-  BookOpen, Bot, Settings, Radar, Store,
+  LayoutDashboard, ListChecks, ShieldCheck, FileBarChart2,
+  BookOpen, Bot, Settings, Radar, Store, FileSearch, AlertTriangle, Bug,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import SettingsDialog from '../SettingsDialog';
@@ -27,14 +27,18 @@ const SECTIONS: { id: NavItemDef['section']; labelKey: string; fallback: string 
   { id: 'system', labelKey: 'platform.nav.secSystem', fallback: '系统' },
 ];
 
-/** 导航元数据表 — 检测能力区 = 平台级能力统一入口：
- *  新建扫描（5 类任务：AI基础设施/MCP/Skill/Agent/大模型安全体检）+ 投毒检测 + 技能市场。
- *  越狱评测（大模型安全体检的评测分析视图）不设独立菜单，页面保留由报告中心/任务上下文进入。 */
+/** 导航元数据表 — 检测能力区 = 5 类扫描能力独立菜单（各含历史任务+指标）
+ *  + 平台级能力（投毒检测/技能市场）。新建扫描不占菜单：Topbar 右上角 CTA 触发。 */
 const NAV_ITEMS: NavItemDef[] = [
   { key: 'dashboard', to: '/', icon: LayoutDashboard, section: 'monitor' },
   { key: 'tasks', to: '/tasks', icon: ListChecks, section: 'monitor', badge: 'runningTasks' },
-  { key: 'scan', to: '/scan', icon: ScanSearch, section: 'capability' },
-  { key: 'reports', to: '/reports', icon: FileBarChart2, section: 'capability' },
+  // 5 类扫描能力 — 点击进入该类型的历史任务列表与结果指标
+  { key: 'agentScan', to: '/scan/agent', icon: Bot, section: 'capability' },
+  { key: 'skillScan', to: '/scan/skill', icon: FileSearch, section: 'capability' },
+  { key: 'mcpScan', to: '/scan/mcp', icon: ShieldCheck, section: 'capability' },
+  { key: 'modelRedteamReport', to: '/scan/redteam', icon: AlertTriangle, section: 'capability' },
+  { key: 'aiInfraScan', to: '/scan/infra', icon: Bug, section: 'capability' },
+  // 平台级能力（非任务型）
   { key: 'poisonDetect', to: '/poison-detect', icon: Radar, section: 'capability' },
   { key: 'skillMarket', to: 'external:https://matrix.tencent.com/skill-market', icon: Store, section: 'capability' },
   { key: 'knowledge', to: '/knowledge', icon: BookOpen, section: 'knowledge' },

@@ -169,6 +169,8 @@
 
 - **2026-09-18**：检测能力区扩容至 7 类（提交 3f52c975，用户明确"不拘泥设计稿"）：任务型 5 类（AI基础设施扫描/MCP扫描/Skill扫描/Agent扫描/大模型安全体检）保持 NewScanPage 表单流；新增平台级 2 项——大模型API投毒检测（页内 /poison-detect，LLMProxyDetectPage 既有实现；后端 relay 代理需 --api-checker-url 指向 checker 服务，当前部署传空=禁用，页可开但检测会失败，已向用户说明）+ AI 安全技能市场（外链 matrix.tencent.com/skill-market，与旧工作台按钮同目标）。SideNav/CommandSearch/新建扫描页左列三处入口同步。
 
+- **2026-09-18**：菜单结构按用户澄清重构（提交 22469f65）：①7 类能力统一为平台级能力体系——5 类任务扫描（Agent/Skill/MCP/体检/AI基础设施）统一走「新建扫描」，与投毒检测/技能市场平级；②越狱评测=大模型安全体检的组成部分，删除独立菜单项；/jailbreak 页面保留作为体检任务的评测分析视图，入口=报告中心页头「越狱评测分析」按钮+面包屑，页标题改为「大模型安全体检 · 越狱评测」。已部署（main-BPXhliQ8.js）。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
