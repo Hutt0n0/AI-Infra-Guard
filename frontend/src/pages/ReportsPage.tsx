@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Loader2, FileBarChart2, RefreshCw, Search } from 'lucide-react';
+import { Loader2, FileBarChart2, RefreshCw, Search, ShieldCheck, ChevronRight } from 'lucide-react';
 import { PageHeader, FilterChips, FilterRow, DataTable, TaskTypeBadge, TaskStatusBadge } from '../components/platform/primitives';
 import type { DataTableColumn } from '../components/platform/primitives';
 import { fetchTaskSummaries } from '../lib/taskApi';
@@ -133,15 +133,28 @@ export default function ReportsPage() {
         titleLight="Reports"
         subtitle={label('platform.reports.pageSub', '已完成任务的评估报告汇总 · 支持按类型检索')}
         actions={
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-[7px] rounded-[11px] border bg-white px-[15px] py-2 text-[13px] font-semibold text-plat-ink-2 hover:bg-plat-surface-low cursor-pointer"
-            style={{ borderColor: 'var(--outline)' }}
-          >
-            {isLoading ? <Loader2 className="w-[15px] h-[15px] animate-spin" /> : <RefreshCw className="w-[15px] h-[15px]" />}
-            {label('platform.reports.refresh', '刷新')}
-          </button>
+          <>
+            {/* 越狱评测分析 — 大模型安全体检任务的评测视图（/jailbreak） */}
+            <button
+              type="button"
+              onClick={() => navigate('/jailbreak')}
+              className="inline-flex items-center gap-[7px] rounded-[11px] border bg-white px-[15px] py-2 text-[13px] font-semibold text-plat-ink-2 hover:bg-plat-surface-low cursor-pointer"
+              style={{ borderColor: 'var(--outline)' }}
+            >
+              <ShieldCheck className="w-[15px] h-[15px]" />
+              {label('platform.reports.jailbreakAnalysis', '越狱评测分析')}
+              <ChevronRight className="w-3.5 h-3.5 text-plat-muted" />
+            </button>
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex items-center gap-[7px] rounded-[11px] border bg-white px-[15px] py-2 text-[13px] font-semibold text-plat-ink-2 hover:bg-plat-surface-low cursor-pointer"
+              style={{ borderColor: 'var(--outline)' }}
+            >
+              {isLoading ? <Loader2 className="w-[15px] h-[15px] animate-spin" /> : <RefreshCw className="w-[15px] h-[15px]" />}
+              {label('platform.reports.refresh', '刷新')}
+            </button>
+          </>
         }
       />
 

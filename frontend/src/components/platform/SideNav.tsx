@@ -27,12 +27,13 @@ const SECTIONS: { id: NavItemDef['section']; labelKey: string; fallback: string 
   { id: 'system', labelKey: 'platform.nav.secSystem', fallback: '系统' },
 ];
 
-/** 导航元数据表 — 检测能力区覆盖 7 类：5 任务型 + 投毒检测（页内）+ 技能市场（外链） */
+/** 导航元数据表 — 检测能力区 = 平台级能力统一入口：
+ *  新建扫描（5 类任务：AI基础设施/MCP/Skill/Agent/大模型安全体检）+ 投毒检测 + 技能市场。
+ *  越狱评测（大模型安全体检的评测分析视图）不设独立菜单，页面保留由报告中心/任务上下文进入。 */
 const NAV_ITEMS: NavItemDef[] = [
   { key: 'dashboard', to: '/', icon: LayoutDashboard, section: 'monitor' },
   { key: 'tasks', to: '/tasks', icon: ListChecks, section: 'monitor', badge: 'runningTasks' },
   { key: 'scan', to: '/scan', icon: ScanSearch, section: 'capability' },
-  { key: 'jailbreak', to: '/jailbreak', icon: ShieldCheck, section: 'capability' },
   { key: 'reports', to: '/reports', icon: FileBarChart2, section: 'capability' },
   { key: 'poisonDetect', to: '/poison-detect', icon: Radar, section: 'capability' },
   { key: 'skillMarket', to: 'external:https://matrix.tencent.com/skill-market', icon: Store, section: 'capability' },

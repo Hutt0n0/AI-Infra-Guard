@@ -1235,7 +1235,7 @@
       "dashboard": "Security Posture",
       "tasks": "Task Center",
       "scan": "New Scan",
-      "jailbreak": "Jailbreak Eval",
+      "jailbreak": "LLM Security Check · Jailbreak Eval",
       "reports": "Reports",
       "knowledge": "Rule Library",
       "agents": "Agents & Nodes",
@@ -1464,7 +1464,8 @@
       "searchPlaceholder": "Search task / sessionId…",
       "loading": "Loading reports…",
       "empty": "No reports from completed tasks yet",
-      "total": "{{count}} reports"
+      "total": "{{count}} reports",
+      "jailbreakAnalysis": "Jailbreak Evaluation Analysis"
     },
     "notify": {
       "title": "Notifications",

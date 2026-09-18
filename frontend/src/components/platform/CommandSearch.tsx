@@ -24,7 +24,6 @@ export default function CommandSearch({
     { key: 'dashboard', to: '/' },
     { key: 'tasks', to: '/tasks' },
     { key: 'scan', to: '/scan' },
-    { key: 'jailbreak', to: '/jailbreak' },
     { key: 'reports', to: '/reports' },
     { key: 'poisonDetect', to: '/poison-detect' },
     { key: 'knowledge', to: '/knowledge' },

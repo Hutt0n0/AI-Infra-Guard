@@ -1234,7 +1234,7 @@
       "dashboard": "安全总览",
       "tasks": "任务中心",
       "scan": "新建扫描",
-      "jailbreak": "越狱评测",
+      "jailbreak": "大模型安全体检 · 越狱评测",
       "reports": "报告中心",
       "knowledge": "规则库",
       "agents": "节点与 Agent",
@@ -1463,7 +1463,8 @@
       "searchPlaceholder": "搜索任务名 / sessionId…",
       "loading": "加载报告列表…",
       "empty": "暂无已完成任务的报告",
-      "total": "共 {{count}} 份报告"
+      "total": "共 {{count}} 份报告",
+      "jailbreakAnalysis": "越狱评测分析"
     },
     "notify": {
       "title": "通知中心",
