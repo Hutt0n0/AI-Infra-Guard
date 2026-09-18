@@ -68,6 +68,21 @@ class ActionLog(ContentSchema):
     log: str
 
 
+class MessageTrace(ContentSchema):
+    """Log entry for a message exchanged with the target agent/LLM API."""
+    trace_id: str
+    direction: Literal["request", "response", "error"]
+    tool: str
+    stepId: str
+    endpoint: str
+    phase: str = ""
+    attack_method: str = ""
+    vulnerability: str = ""
+    turn: int = 0
+    payload: str
+    meta: str = ""
+
+
 class ErrorLog(ContentSchema):
     """Log entry for errors."""
     msg: str
@@ -159,6 +174,35 @@ class ScanLogger:
         """Log a tool action."""
         self._log("actionLog", ActionLog(
             tool_id=tool_id, tool_name=tool_name, stepId=stepId, log=log
+        ))
+
+    def message_trace(
+        self,
+        trace_id: str,
+        direction: Literal["request", "response", "error"],
+        tool: str,
+        stepId: str,
+        endpoint: str,
+        payload: str,
+        phase: str = "",
+        attack_method: str = "",
+        vulnerability: str = "",
+        turn: int = 0,
+        meta: str = "",
+    ):
+        """Log a message exchanged with the target agent (request/response/error)."""
+        self._log("messageTrace", MessageTrace(
+            trace_id=trace_id,
+            direction=direction,
+            tool=tool,
+            stepId=stepId,
+            endpoint=endpoint,
+            payload=payload,
+            phase=phase,
+            attack_method=attack_method,
+            vulnerability=vulnerability,
+            turn=turn,
+            meta=meta,
         ))
 
     def result_update(self, content: dict):

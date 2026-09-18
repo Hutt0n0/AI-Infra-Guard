@@ -1202,6 +1202,16 @@
     "noTrace": "No LLM trace yet (waiting for first model call)",
     "llmThinking": "LLM Thinking / Decision",
     "back": "Back",
-    "stepNotStarted": "No activity in this stage yet"
+    "stepNotStarted": "No activity in this stage yet",
+    "traceTitle": "Target Traffic",
+    "noTraces": "No target traffic yet (waiting for target interaction)",
+    "selectTrace": "Select a call to view full message exchange",
+    "traceReq": "Req",
+    "traceResp": "Resp",
+    "traceErr": "Error",
+    "traceRequest": "Message sent to target",
+    "traceResponse": "Message returned by target",
+    "traceError": "Target response (error)",
+    "traceCall": "Target call"
   }
 }

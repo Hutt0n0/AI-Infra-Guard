@@ -1201,6 +1201,16 @@
     "noTrace": "暂无 LLM Trace（等待第一次模型调用）",
     "llmThinking": "LLM 思考/决策",
     "back": "返回",
-    "stepNotStarted": "该阶段尚未产生活动"
+    "stepNotStarted": "该阶段尚未产生活动",
+    "traceTitle": "目标通信",
+    "noTraces": "暂无目标通信记录（等待与受测目标交互）",
+    "selectTrace": "选择左侧调用查看完整往来消息",
+    "traceReq": "请求",
+    "traceResp": "响应",
+    "traceErr": "异常",
+    "traceRequest": "发往目标的消息",
+    "traceResponse": "目标返回的消息",
+    "traceError": "目标返回（异常）",
+    "traceCall": "目标调用"
   }
 }

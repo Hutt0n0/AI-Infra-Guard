@@ -32,6 +32,24 @@ export interface Task {
   result?: string; // MD file path
   messages: Message[];
   isSubmitted: boolean; // Whether the task has been submitted
+  traces?: MessageTraceEntry[]; // Target-communication traces (agent/LLM API traffic)
+}
+
+// One message exchanged with the tested agent / LLM API (messageTrace events)
+export interface MessageTraceEntry {
+  id: string;
+  traceId: string; // request/response/error of the same call share this id
+  direction: 'request' | 'response' | 'error';
+  tool: string;
+  planStepId: string;
+  endpoint: string; // model name or agent label
+  phase: string; // e.g. attack / pre-verify / connectivity / skill worker name
+  attackMethod?: string;
+  vulnerability?: string;
+  turn?: number;
+  payload: string;
+  meta?: string; // JSON string with status_code / elapsed_ms / transport etc.
+  timestamp: number; // seconds
 }
 
 export interface SubStep {
@@ -117,6 +135,7 @@ export type AppAction =
   | { type: 'SET_TASKS'; payload: Task[] }
   | { type: 'ADD_TASK'; payload: Task }
   | { type: 'UPDATE_TASK'; payload: { id: string; updates: Partial<Task> } }
+  | { type: 'APPEND_TRACE'; payload: { taskId: string; trace: MessageTraceEntry } }
   | { type: 'TERMINATE_TASK_STEPS'; payload: string }
   | { type: 'DELETE_TASK'; payload: string }
   | { type: 'SET_CURRENT_TASK'; payload: string | null }

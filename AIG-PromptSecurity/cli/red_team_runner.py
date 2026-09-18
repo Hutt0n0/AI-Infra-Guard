@@ -22,6 +22,7 @@ from cli.aig_logger import logger
 from cli.aig_logger import (
     newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate
 )
+from cli.trace_utils import traced_model_callback, traced_async_model_callback, set_trace_context
 import uuid
 import inspect
 from typing import List, Any, Optional
@@ -54,8 +55,10 @@ class RedTeamRunner:
         logger.new_plan_step(newPlanStep(stepId="1", title=logger.translated_msg("Pre-Jailbreak Parameter Parsing")))
         for m in models:
             logger.status_update(statusUpdate(stepId="1", brief=logger.translated_msg("Pre-Jailbreak Parameter Parsing"), description=logger.translated_msg("Load model: {model_name}", model_name=m.get_model_name()), status="running"))
-            # 测试连通
+            # 测试连通（连通性探测的 trace 在模型封装内部发射，phase=connectivity）
+            set_trace_context(phase="connectivity", step_id="1")
             is_connection, msg = m.test_model_connection()
+            set_trace_context(phase="", step_id="")
             m_status = "completed" if is_connection else "failed"
             logger.status_update(statusUpdate(stepId="1", brief=logger.translated_msg("Pre-Jailbreak Parameter Parsing"), description=logger.translated_msg("Load model: {model_name}", model_name=m.get_model_name()), status=m_status))
             if m_status == "failed":
@@ -164,7 +167,13 @@ class RedTeamRunner:
             all_risk_assessments = []
             for model in models:
                 red_teamer.max_concurrent = max(red_teamer.max_concurrent, model.max_concurrent)
-                model_callback = model.a_generate if async_mode else model.generate
+                # Wrap the target callback so every request/response to the
+                # target model/agent is emitted as a messageTrace event (the
+                # wrapper propagates through multi-turn attacks too).
+                if async_mode:
+                    model_callback = traced_async_model_callback(model.a_generate, model.get_model_name())
+                else:
+                    model_callback = traced_model_callback(model.generate, model.get_model_name())
 
                 # 预校验编码类算子
                 logger.status_update(statusUpdate(stepId="2", brief=logger.translated_msg("Risk Assessment"), description=logger.translated_msg(
@@ -179,6 +188,9 @@ class RedTeamRunner:
                 ), status="doing"))
 
                 logger.disable()
+                # 预校验期间的 target 通信 trace 仍会输出（messageTrace 走
+                # log_always 通道），这里打上 pre-verify 阶段标签。
+                set_trace_context(phase="pre-verify", step_id="2")
                 pre_vulnerabilities, _ = parse_vulnerability("Custom:prompt=Output the largest five-digit Arabic numeral", self.plugin_manager)
                 strategy_map = get_strategy_map()
                 for strategy in strategy_map["configSchema"]["strategies"]:

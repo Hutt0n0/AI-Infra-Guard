@@ -372,6 +372,31 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
           data.event.actionLog,
         );
         break;
+
+      case 'messageTrace':
+        // Append one target-communication trace entry (request/response/error)
+        dispatch({
+          type: 'APPEND_TRACE',
+          payload: {
+            taskId: data.sessionId,
+            trace: {
+              id: data.event.id || uuidv4(),
+              traceId: data.event.traceId || '',
+              direction: data.event.direction || 'request',
+              tool: data.event.tool || 'target_dialogue',
+              planStepId: data.event.planStepId || '',
+              endpoint: data.event.endpoint || '',
+              phase: data.event.phase || '',
+              attackMethod: data.event.attackMethod,
+              vulnerability: data.event.vulnerability,
+              turn: data.event.turn,
+              payload: data.event.payload || '',
+              meta: data.event.meta,
+              timestamp: data.event.timestamp || Date.now() / 1000,
+            },
+          },
+        });
+        break;
         
       case 'resultUpdate':
         // Check whether a result message already exists to avoid duplicate additions
@@ -1093,6 +1118,17 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
       if (data.type === 'actionLog' && data.event?.planStepId) {
         // Handle actionLog events via the message queue
         addToMessageQueue('actionLog', {
+          sessionId,
+          event: data.event,
+        });
+      }
+    });
+
+    eventSource.addEventListener('messageTrace', (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'messageTrace' && data.event) {
+        // Handle target-communication trace events via the message queue
+        addToMessageQueue('messageTrace', {
           sessionId,
           event: data.event,
         });

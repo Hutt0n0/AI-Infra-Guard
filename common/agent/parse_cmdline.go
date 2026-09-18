@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/Tencent/AI-Infra-Guard/common/utils"
 	"github.com/Tencent/AI-Infra-Guard/internal/gologger"
@@ -55,6 +56,21 @@ type CmdActionLog struct {
 	ToolName string `json:"tool_name"`
 	Log      string `json:"log"`
 	StepId   string `json:"stepId"`
+}
+
+// CmdMessageTrace Python 子进程输出的消息通信 trace 内容
+type CmdMessageTrace struct {
+	TraceId       string `json:"trace_id"`
+	Direction     string `json:"direction"`
+	Tool          string `json:"tool"`
+	StepId        string `json:"stepId"`
+	Endpoint      string `json:"endpoint"`
+	Phase         string `json:"phase"`
+	AttackMethod  string `json:"attack_method,omitempty"`
+	Vulnerability string `json:"vulnerability,omitempty"`
+	Turn          int    `json:"turn,omitempty"`
+	Payload       string `json:"payload"`
+	Meta          string `json:"meta,omitempty"`
 }
 
 type CmdContent struct {
@@ -168,6 +184,31 @@ func ParseStdoutLine(server, rootDir string, tasks []SubTask, line string, callb
 			return
 		}
 		callbacks.ToolUseLogCallback(content.ToolId, content.ToolName, content.StepId, content.Log)
+	case AgentMsgTypeMessageTrace:
+		var content CmdMessageTrace
+		if err := json.Unmarshal(cmd.Content, &content); err != nil {
+			gologger.WithError(err).Errorln("Failed to AgentMsgTypeMessageTrace unmarshal command", cmd.Content)
+			return
+		}
+		event := MessageTraceEvent{
+			ID:            uuid.NewString(),
+			Type:          AgentMsgTypeMessageTrace,
+			Timestamp:     time.Now().Unix(),
+			TraceId:       content.TraceId,
+			Direction:     content.Direction,
+			Tool:          content.Tool,
+			PlanStepId:    content.StepId,
+			Endpoint:      content.Endpoint,
+			Phase:         content.Phase,
+			AttackMethod:  content.AttackMethod,
+			Vulnerability: content.Vulnerability,
+			Turn:          content.Turn,
+			Payload:       content.Payload,
+			Meta:          content.Meta,
+		}
+		if callbacks.MessageTraceCallback != nil {
+			callbacks.MessageTraceCallback(event)
+		}
 	case AgentMsgTypeResultUpdate:
 		for i, _ := range tasks {
 			tasks[i].Status = SubTaskStatusDone

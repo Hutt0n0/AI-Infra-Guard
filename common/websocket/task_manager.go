@@ -482,6 +482,12 @@ func (tm *TaskManager) HandleAgentEvent(sessionId string, eventType string, even
 				log.Debugf("动作日志: sessionId=%s, actionId=%s", sessionId, actionLogEvent.ActionID)
 			}
 		}
+	case "messageTrace":
+		if convertedEvent, err := convertToStruct(event, &agent.MessageTraceEvent{}); err == nil {
+			if traceEvent, ok := convertedEvent.(*agent.MessageTraceEvent); ok {
+				log.Debugf("消息通信trace: sessionId=%s, direction=%s, endpoint=%s", sessionId, traceEvent.Direction, traceEvent.Endpoint)
+			}
+		}
 	case "error":
 		log.Errorf("错误事件: sessionId=%s %v", sessionId, event)
 		err := tm.taskStore.UpdateSessionStatus(sessionId, TaskStatusError)

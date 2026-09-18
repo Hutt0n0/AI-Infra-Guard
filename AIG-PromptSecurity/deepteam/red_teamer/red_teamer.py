@@ -33,6 +33,7 @@ from cli.aig_logger import logger
 from cli.aig_logger import (
     newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate
 )
+from cli.trace_utils import set_trace_context
 import uuid
 
 from deepeval.models import DeepEvalBaseLLM
@@ -331,6 +332,16 @@ Direct translation without separators"""
                             "Generating {idx} / {num_simulated_attacks} output from simulated attacks", idx=_idx+1, num_simulated_attacks=num_simulated_attacks
                         ), status="doing"))
 
+                        # Publish attack context so the traced model_callback
+                        # can label the target-communication trace events.
+                        set_trace_context(
+                            phase="attack",
+                            attack_method=simulated_attack.attack_method or "",
+                            vulnerability=simulated_attack.vulnerability or "",
+                            turn=1,
+                            step_id="2",
+                        )
+
                         try:
                             target_output = model_callback(
                                 simulated_attack.input
@@ -544,6 +555,15 @@ Direct translation without separators"""
                 return red_teaming_test_case
 
             metric: BaseRedTeamingMetric = metrics_map[vulnerability_type]()
+            # Publish attack context so the traced model_callback can label
+            # the target-communication trace events (per coroutine, via ContextVar).
+            set_trace_context(
+                phase="attack",
+                attack_method=simulated_attack.attack_method or "",
+                vulnerability=vulnerability or "",
+                turn=1,
+                step_id="2",
+            )
             try:
                 actual_output = await model_callback(simulated_attack.input)
                 if actual_output == "":

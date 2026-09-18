@@ -95,9 +95,12 @@ class AgentTargetModel(BaseLLM):
             result = client.call_provider(provider, "Only return 1")
             if result.success:
                 output = (result.provider_response.output or "") if result.provider_response else ""
+                self._emit_connection_trace(True, output[:200])
                 return True, output[:200] or "agent responded successfully"
+            self._emit_connection_trace(False, "", result.message or "agent call failed")
             return False, result.message or "agent call failed"
         except Exception as e:  # noqa: BLE001
+            self._emit_connection_trace(False, "", str(e))
             return False, str(e)
 
     def _call_agent(self, prompt: str) -> str:

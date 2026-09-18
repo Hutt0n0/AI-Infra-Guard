@@ -50,14 +50,27 @@ class actionLog(contentSchema):
     stepId: str
     log: str
 
+class messageTrace(contentSchema):
+    trace_id: str
+    direction: str
+    tool: str
+    stepId: str
+    endpoint: str
+    phase: str = ""
+    attack_method: str = ""
+    vulnerability: str = ""
+    turn: int = 0
+    payload: str
+    meta: str = ""
+
 class resultUpdate(contentSchema):
     msgType: Literal["text", "markdown", "file", "json"]
     content: str | dict | list
     status: bool | None = None
 
 class PromptSecurityLog(BaseModel):
-    type: Literal["error", "newPlanStep", "statusUpdate", "toolUsed", "actionLog", "resultUpdate"]
-    content: Union[str, newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate]
+    type: Literal["error", "newPlanStep", "statusUpdate", "toolUsed", "actionLog", "resultUpdate", "messageTrace"]
+    content: Union[str, newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate, messageTrace]
 
 class PromptSecurityLogger:
     def __init__(self, base_logger, lang='en_US'):
@@ -88,9 +101,23 @@ class PromptSecurityLogger:
 
     def disable(self):
         self._base_logger.disable("")
-    
+
     def enable(self):
         self._base_logger.enable("")
+
+    def log_always(self, log_type: str, content: Union[str, contentSchema]):
+        """记录日志（不受 disable 影响）。
+
+        供审计类事件（如 messageTrace）使用：即使主日志被 disable（预校验
+        阶段会临时禁用以隐藏进度噪音），审计 trace 依然需要完整输出。
+        """
+        try:
+            log_message = self._create_log(log_type, content)
+            # 直接写 stdout，绕过 loguru 的 disable 开关
+            sys.stdout.write(log_message + "\n")
+            sys.stdout.flush()
+        except Exception:
+            pass
 
     def _setup_i18n(self):
         localedir = os.path.join(os.path.dirname(__file__), 'locales')
@@ -145,7 +172,11 @@ class PromptSecurityLogger:
     
     def action_log(self, content: actionLog):
         self.log("actionLog", content)
-    
+
+    def message_trace(self, content: messageTrace):
+        """消息通信 trace：审计数据，disable 期间也要输出（log_always）。"""
+        self.log_always("messageTrace", content)
+
     def result_update(self, content: resultUpdate):
         self.log("resultUpdate", content)
 

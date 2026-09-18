@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExecutionStep, Task } from '../../types';
+import { ExecutionStep, Task, MessageTraceEntry } from '../../types';
 import {
+  ArrowDownLeft,
+  ArrowUpRight,
   Bot,
   Brain,
   CheckCircle,
@@ -9,9 +11,11 @@ import {
   ChevronRight,
   CircleDot,
   Loader2,
+  MessagesSquare,
   ShieldAlert,
   Terminal,
   Wrench,
+  XCircle,
 } from 'lucide-react';
 
 /**
@@ -97,6 +101,8 @@ const ScanProgressConsole: React.FC<ScanProgressConsoleProps> = ({
   const lang = i18n.language || 'zh';
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
+  // View mode: execution stream vs target-communication traces
+  const [viewMode, setViewMode] = useState<'stream' | 'traces'>('stream');
   const listBottomRef = useRef<HTMLDivElement>(null);
 
   // ---- build the unified stream: LLM calls + tool calls, chronological ----
@@ -181,7 +187,43 @@ const ScanProgressConsole: React.FC<ScanProgressConsoleProps> = ({
   }, [entries]);
 
   return (
-    <div className="w-full h-full bg-white flex flex-col min-w-[320px]">
+    <div className="w-full h-full bg-white flex flex-col min-w-[320px] relative">
+      {/* View tabs: execution stream / target-communication traces */}
+      <div className="px-3 pt-2 border-b border-gray-200 flex items-center gap-1 flex-shrink-0">
+        <button
+          onClick={() => setViewMode('stream')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
+            viewMode === 'stream'
+              ? 'text-gray-900 border-b-2 border-gray-900'
+              : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          <Terminal className="w-3.5 h-3.5" />
+          {t('scanConsole.streamTitle', '扫描执行流')}
+        </button>
+        <button
+          onClick={() => setViewMode('traces')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
+            viewMode === 'traces'
+              ? 'text-gray-900 border-b-2 border-gray-900'
+              : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          <MessagesSquare className="w-3.5 h-3.5" />
+          {t('scanConsole.traceTitle', '目标通信')}
+          {(task.traces?.length || 0) > 0 && (
+            <span className="text-[10px] font-mono text-gray-400">
+              {task.traces!.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Target-communication trace stream view */}
+      {viewMode === 'traces' ? (
+        <TraceStreamView traces={task.traces || []} />
+      ) : (
+        <>
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between flex-shrink-0 gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -271,6 +313,8 @@ const ScanProgressConsole: React.FC<ScanProgressConsoleProps> = ({
         >
           {t('scanConsole.followLatest', '跟随最新')} ↓
         </button>
+      )}
+        </>
       )}
     </div>
   );
@@ -524,6 +568,342 @@ const ToolDetailView: React.FC<{ entry: StreamEntry; fmtTime: (d?: Date) => stri
         <div className="text-xs text-gray-300 text-center py-6">
           {t('scanConsole.noDetail', '无更多详情')}
         </div>
+      )}
+    </div>
+  );
+};
+
+// ================= Target-communication trace stream =================
+
+interface TraceCall {
+  key: string; // traceId
+  endpoint: string;
+  phase: string;
+  attackMethod?: string;
+  vulnerability?: string;
+  turn?: number;
+  planStepId: string;
+  request?: MessageTraceEntry;
+  response?: MessageTraceEntry;
+  error?: MessageTraceEntry;
+  lastTime?: Date;
+}
+
+const TraceStreamView: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces }) => {
+  const { t } = useTranslation();
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [follow, setFollow] = useState(true);
+  const [directionFilter, setDirectionFilter] = useState<'all' | 'request' | 'response' | 'error'>('all');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Group traces into calls by traceId (request/response/error triplets)
+  const { calls, counts } = useMemo(() => {
+    const map = new Map<string, TraceCall>();
+    const order: string[] = [];
+    let c = { request: 0, response: 0, error: 0 };
+    for (const tr of [...traces].sort(
+      (a, b) => a.timestamp - b.timestamp
+    )) {
+      c.request += tr.direction === 'request' ? 1 : 0;
+      c.response += tr.direction === 'response' ? 1 : 0;
+      c.error += tr.direction === 'error' ? 1 : 0;
+      if (!map.has(tr.traceId)) {
+        map.set(tr.traceId, {
+          key: tr.traceId,
+          endpoint: tr.endpoint,
+          phase: tr.phase,
+          attackMethod: tr.attackMethod,
+          vulnerability: tr.vulnerability,
+          turn: tr.turn,
+          planStepId: tr.planStepId,
+        });
+        order.push(tr.traceId);
+      }
+      const call = map.get(tr.traceId)!;
+      if (tr.direction === 'request') call.request = tr;
+      else if (tr.direction === 'response') call.response = tr;
+      else call.error = tr;
+      call.lastTime = new Date(tr.timestamp * 1000);
+      // Enrich context from whichever entry carries it
+      call.attackMethod = call.attackMethod || tr.attackMethod;
+      call.vulnerability = call.vulnerability || tr.vulnerability;
+    }
+    return { calls: order.map(k => map.get(k)!), counts: c };
+  }, [traces]);
+
+  const filtered = useMemo(() => {
+    if (directionFilter === 'all') return calls;
+    return calls.filter(
+      c => (directionFilter === 'request' && c.request) ||
+           (directionFilter === 'response' && c.response) ||
+           (directionFilter === 'error' && (c.error || !c.response))
+    );
+  }, [calls, directionFilter]);
+
+  useEffect(() => {
+    if (follow && filtered.length > 0) {
+      setSelectedKey(filtered[filtered.length - 1].key);
+      bottomRef.current?.scrollIntoView({ block: 'end' });
+    }
+  }, [follow, filtered]);
+
+  const selected = useMemo(
+    () => filtered.find(c => c.key === selectedKey) || null,
+    [filtered, selectedKey]
+  );
+
+  const fmtTime = (d?: Date) =>
+    d ? new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(d) : '';
+
+  return (
+    <div className="flex-1 flex min-h-0">
+      {/* Left: call list */}
+      <div className="w-[46%] max-w-[46%] border-r border-gray-200 overflow-y-auto min-h-0 bg-gray-50/60 flex flex-col">
+        {/* Direction filter */}
+        <div className="px-3 py-2 border-b border-gray-200 bg-white flex items-center gap-1 flex-shrink-0">
+          <FilterChip active={directionFilter === 'all'} label={t('scanConsole.filterAll', '全部')} onClick={() => setDirectionFilter('all')} />
+          <FilterChip active={directionFilter === 'request'} label={`${t('scanConsole.traceReq', '请求')} ${counts.request}`} onClick={() => setDirectionFilter('request')} />
+          <FilterChip active={directionFilter === 'response'} label={`${t('scanConsole.traceResp', '响应')} ${counts.response}`} onClick={() => setDirectionFilter('response')} />
+          <FilterChip active={directionFilter === 'error'} label={`${t('scanConsole.traceErr', '异常')} ${counts.error}`} onClick={() => setDirectionFilter('error')} />
+        </div>
+        {filtered.length === 0 && (
+          <div className="text-xs text-gray-400 text-center py-10">
+            {t('scanConsole.noTraces', '暂无目标通信记录（等待与受测目标交互）')}
+          </div>
+        )}
+        {filtered.map(call => (
+          <TraceCallRow
+            key={call.key}
+            call={call}
+            selected={call.key === selectedKey}
+            onClick={() => {
+              setFollow(false);
+              setSelectedKey(call.key);
+            }}
+            fmtTime={fmtTime}
+          />
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Right: call detail */}
+      <div className="flex-1 overflow-y-auto min-h-0 bg-white">
+        {!selected ? (
+          <div className="h-full flex items-center justify-center text-xs text-gray-300">
+            {t('scanConsole.selectTrace', '选择左侧调用查看完整往来消息')}
+          </div>
+        ) : (
+          <TraceCallDetail call={selected} fmtTime={fmtTime} />
+        )}
+      </div>
+
+      {!follow && filtered.length > 0 && (
+        <button
+          onClick={() => {
+            setFollow(true);
+            setSelectedKey(filtered[filtered.length - 1].key);
+          }}
+          className="absolute bottom-4 right-6 z-20 px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs shadow-lg hover:bg-blue-700 transition-colors"
+        >
+          {t('scanConsole.followLatest', '跟随最新')} ↓
+        </button>
+      )}
+    </div>
+  );
+};
+
+const TraceCallRow: React.FC<{
+  call: TraceCall;
+  selected: boolean;
+  onClick: () => void;
+  fmtTime: (d?: Date) => string;
+}> = ({ call, selected, onClick, fmtTime }) => {
+  const status = call.error || !call.response ? 'error' : 'done';
+  const preview =
+    (call.response?.payload || call.error?.payload || call.request?.payload || '')
+      .slice(0, 120)
+      .replace(/\s+/g, ' ');
+  const label = call.attackMethod
+    ? `${call.attackMethod}${call.turn && call.turn > 1 ? ` · T${call.turn}` : ''}`
+    : call.phase || 'call';
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-1.5 border-l-2 transition-colors ${
+        selected ? 'bg-blue-50 border-blue-500' : 'border-transparent hover:bg-gray-100'
+      }`}
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        {status === 'error' ? (
+          <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+        ) : (
+          <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+        )}
+        <ArrowUpRight className="w-3 h-3 text-blue-400 flex-shrink-0" />
+        <ArrowDownLeft className="w-3 h-3 text-emerald-500 flex-shrink-0 -ml-2" />
+        <span className="text-xs font-medium text-gray-800 truncate flex-shrink-0">{label}</span>
+        <span className="text-[11px] text-gray-400 truncate flex-1">{preview}</span>
+        <span className="text-[10px] text-gray-300 font-mono flex-shrink-0">{fmtTime(call.lastTime)}</span>
+      </div>
+    </button>
+  );
+};
+
+const TraceCallDetail: React.FC<{ call: TraceCall; fmtTime: (d?: Date) => string }> = ({
+  call,
+  fmtTime,
+}) => {
+  const { t } = useTranslation();
+  const [openReq, setOpenReq] = useState(true);
+  const [openResp, setOpenResp] = useState(true);
+
+  const parseMeta = (meta?: string): Record<string, any> | null => {
+    if (!meta) return null;
+    try {
+      return JSON.parse(meta);
+    } catch {
+      return null;
+    }
+  };
+  const reqMeta = parseMeta(call.request?.meta);
+  const respMeta = parseMeta(call.response?.meta || call.error?.meta);
+
+  const directionBadge = (label: string, dir: 'req' | 'resp') => (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-bold font-mono w-24 flex-shrink-0 ${
+        dir === 'req' ? 'text-blue-700' : 'text-emerald-700'
+      }`}
+    >
+      {dir === 'req' ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownLeft className="w-3.5 h-3.5" />}
+      {label}
+    </span>
+  );
+
+  const metaChips = (meta: Record<string, any> | null) =>
+    meta ? (
+      <div className="flex flex-wrap gap-1">
+        {Object.entries(meta).map(([k, v]) => (
+          <span key={k} className="text-[10px] font-mono text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">
+            {k}={String(v)}
+          </span>
+        ))}
+      </div>
+    ) : null;
+
+  return (
+    <div className="p-4 space-y-3">
+      {/* Title + meta */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <MessagesSquare className="w-4 h-4 text-gray-700" />
+        <span className="text-sm font-semibold text-gray-900">
+          {call.attackMethod || call.phase || t('scanConsole.traceCall', '目标调用')}
+        </span>
+        {(call.attackMethod || call.error || !call.response) && call.vulnerability && (
+          <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+            {call.vulnerability}
+          </span>
+        )}
+        {call.turn !== undefined && call.turn > 1 && (
+          <span className="text-[10px] text-gray-500 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded">turn {call.turn}</span>
+        )}
+        <span className="ml-auto text-[10px] text-gray-300 font-mono">{fmtTime(call.lastTime)}</span>
+      </div>
+      <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2 divide-y divide-gray-100">
+        <FieldRow label="target" value={call.endpoint || '—'} />
+        <FieldRow label="phase" value={call.phase || '—'} />
+        {call.vulnerability && <FieldRow label="vulnerability" value={call.vulnerability} />}
+      </div>
+
+      {/* Request (sent to target) */}
+      {call.request && (
+        <>
+          <div className="text-[11px] font-medium text-gray-500 pt-1">
+            {t('scanConsole.traceRequest', '发往目标的消息')}
+          </div>
+          <div className="rounded-lg border border-blue-200 overflow-hidden">
+            <button
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-blue-50/50 bg-blue-50/40 text-blue-700"
+              onClick={() => setOpenReq(o => !o)}
+            >
+              {directionBadge('REQUEST', 'req')}
+              {!openReq && (
+                <span className="text-[11px] text-gray-500 truncate flex-1">
+                  {(call.request.payload || '').slice(0, 140).replace(/\n/g, ' ')}
+                </span>
+              )}
+              {openReq && <span className="flex-1" />}
+              <span className="text-[10px] text-gray-300 font-mono flex-shrink-0">
+                {(call.request.payload || '').length}ch
+              </span>
+              {openReq ? (
+                <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              )}
+            </button>
+            {openReq && (
+              <>
+                <pre className="px-3 pb-3 whitespace-pre-wrap font-mono text-[11px] text-gray-700 max-h-96 overflow-y-auto bg-blue-50/20">
+                  {call.request.payload || '—'}
+                </pre>
+                {reqMeta && <div className="px-3 pb-2">{metaChips(reqMeta)}</div>}
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Response (from target) */}
+      {(call.response || call.error) && (
+        <>
+          <div className="text-[11px] font-medium text-gray-500 pt-1">
+            {call.error ? t('scanConsole.traceError', '目标返回（异常）') : t('scanConsole.traceResponse', '目标返回的消息')}
+          </div>
+          <div
+            className={`rounded-lg border overflow-hidden ${
+              call.error ? 'border-red-200' : 'border-emerald-200'
+            }`}
+          >
+            <button
+              className={`w-full flex items-center gap-2 px-3 py-1.5 text-left ${
+                call.error
+                  ? 'bg-red-50/40 text-red-700 hover:bg-red-50/60'
+                  : 'bg-emerald-50/40 text-emerald-700 hover:bg-emerald-50/50'
+              }`}
+              onClick={() => setOpenResp(o => !o)}
+            >
+              {directionBadge(call.error ? 'ERROR' : 'RESPONSE', 'resp')}
+              {!openResp && (
+                <span className="text-[11px] text-gray-500 truncate flex-1">
+                  {(call.response?.payload || call.error?.payload || '')
+                    .slice(0, 140)
+                    .replace(/\n/g, ' ')}
+                </span>
+              )}
+              {openResp && <span className="flex-1" />}
+              <span className="text-[10px] text-gray-300 font-mono flex-shrink-0">
+                {(call.response?.payload || call.error?.payload || '').length}ch
+              </span>
+              {openResp ? (
+                <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              )}
+            </button>
+            {openResp && (
+              <>
+                <pre
+                  className={`px-3 pb-3 whitespace-pre-wrap font-mono text-[11px] text-gray-700 max-h-[32rem] overflow-y-auto ${
+                    call.error ? 'bg-red-50/20' : 'bg-emerald-50/20'
+                  }`}
+                >
+                  {(call.response?.payload || call.error?.payload) || '—'}
+                </pre>
+                {respMeta && <div className="px-3 pb-2">{metaChips(respMeta)}</div>}
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

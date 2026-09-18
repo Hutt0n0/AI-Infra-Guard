@@ -289,6 +289,9 @@ func (a *Agent) processMessage(data []byte) error {
 						a.SendPlanUpdate(task.SessionId, tasks)
 						gologger.Debugln("PlanUpdateCallback", tasks)
 					},
+					MessageTraceCallback: func(event MessageTraceEvent) {
+						a.SendMessageTrace(task.SessionId, event)
+					},
 					ErrorCallback: func(error string) {
 						a.SendError(task.SessionId, error)
 						gologger.Debugln("ErrorCallback", error)
@@ -636,4 +639,32 @@ func (a *Agent) SendError(sessionId, msg string) error {
 	a.sendChan <- planUpdateContent
 	return nil
 
+}
+
+// SendMessageTrace 发送与受测 agent/LLM API 的消息通信 trace
+func (a *Agent) SendMessageTrace(sessionId string, event MessageTraceEvent) error {
+	timestamp := time.Now().Unix()
+	msgId := uuid.New().String()
+	event.ID = msgId
+	event.Type = AgentMsgTypeMessageTrace
+	event.Timestamp = timestamp
+
+	// 构建消息通信 trace 更新消息
+	messageTraceUpdate := MessageTraceUpdate{
+		ID:        msgId,
+		Type:      "event",
+		SessionId: sessionId,
+		Timestamp: timestamp,
+		Event:     event,
+	}
+
+	// 构建发送给服务器的消息
+	messageTraceContent := MessageTraceContent{
+		Type:    AgentMsgTypeMessageTrace,
+		Content: messageTraceUpdate,
+	}
+
+	// 通过发送通道发送消息
+	a.sendChan <- messageTraceContent
+	return nil
 }
