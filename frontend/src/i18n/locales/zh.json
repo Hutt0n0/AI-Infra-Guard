@@ -1464,7 +1464,7 @@
       "colRisks": "风险",
       "colScore": "评分",
       "colStatus": "状态",
-      "viewReport": "查看报告",
+      "viewReport": "任务详情",
       "searchPlaceholder": "搜索任务名 / sessionId…",
       "loading": "加载报告列表…",
       "empty": "暂无已完成任务的报告",
@@ -1503,6 +1503,23 @@
       "kpiDoneHint": "含历史累计",
       "unitRuns": "次",
       "unitFindings": "项"
+    },
+    "taskDetail": {
+      "tabConsole": "控制台",
+      "tabTargetComm": "受测对象往来通信",
+      "tabModelComm": "模型往来通信",
+      "tabReport": "报告",
+      "scanModel": "扫描驱动模型",
+      "evalModel": "评估模型",
+      "evalModelEmpty": "评估模型（评分判定）的调用在当前版本的执行引擎中不单独记录往来流水——其判定结果体现在报告 Tab 的逐项评分与 vulnerabilityResults 中。待引擎侧补齐 eval 模型 trace 记录后此处自动展示。",
+      "noModelComm": "该任务没有记录模型调用明细",
+      "llmCall": "LLM 调用",
+      "llmResponse": "模型响应（assistant）",
+      "copyAll": "复制全文",
+      "copied": "已复制往来全文",
+      "share": "复制分享链接",
+      "reportPage": "报告页",
+      "openReportPage": "打开分享报告页"
     }
   }
 }

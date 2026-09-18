@@ -134,7 +134,7 @@ export default function ScanTypePage() {
       cell: r => (
         <button
           type="button"
-          onClick={e => { e.stopPropagation(); navigate(`/report/${r.sessionId}`); }}
+          onClick={e => { e.stopPropagation(); navigate(`/task/${r.sessionId}`); }}
           className="inline-flex items-center gap-1 text-xs font-semibold cursor-pointer"
           style={{ color: 'var(--brand-deep)' }}
         >
@@ -254,7 +254,7 @@ export default function ScanTypePage() {
               columns={columns}
               rows={rows}
               rowKey={r => r.sessionId}
-              onRowClick={r => navigate(`/report/${r.sessionId}`)}
+              onRowClick={r => navigate(`/task/${r.sessionId}`)}
               empty={label('platform.scanType.empty', '该能力暂无任务 — 点击右上角「新建扫描」发起')}
             />
             <div className="flex items-center px-5 py-3 border-t" style={{ borderTopColor: 'var(--plat-grid)' }}>

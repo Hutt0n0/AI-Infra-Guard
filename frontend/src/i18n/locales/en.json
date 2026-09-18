@@ -1465,7 +1465,7 @@
       "colRisks": "Risks",
       "colScore": "Score",
       "colStatus": "Status",
-      "viewReport": "View Report",
+      "viewReport": "Task Details",
       "searchPlaceholder": "Search task / sessionId…",
       "loading": "Loading reports…",
       "empty": "No reports from completed tasks yet",
@@ -1504,6 +1504,23 @@
       "kpiDoneHint": "Historical aggregate",
       "unitRuns": "",
       "unitFindings": ""
+    },
+    "taskDetail": {
+      "tabConsole": "Console",
+      "tabTargetComm": "Target Communications",
+      "tabModelComm": "Model Communications",
+      "tabReport": "Report",
+      "scanModel": "Scan-driving Model",
+      "evalModel": "Evaluation Model",
+      "evalModelEmpty": "Evaluation-model (scoring) calls are not recorded as a separate trace stream by the current engine — their verdicts appear in the Report tab (per-item scores & vulnerabilityResults). This sub-tab will populate once the engine emits eval-model traces.",
+      "noModelComm": "No model-call traces recorded for this task",
+      "llmCall": "LLM Call",
+      "llmResponse": "Model response (assistant)",
+      "copyAll": "Copy transcript",
+      "copied": "Transcript copied",
+      "share": "Copy share link",
+      "reportPage": "Report page",
+      "openReportPage": "Open the shared report page"
     }
   }
 }

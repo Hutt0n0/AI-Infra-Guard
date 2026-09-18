@@ -115,7 +115,7 @@ export default function ReportsPage() {
       cell: r => (
         <button
           type="button"
-          onClick={e => { e.stopPropagation(); navigate(`/report/${r.sessionId}`); }}
+          onClick={e => { e.stopPropagation(); navigate(`/task/${r.sessionId}`); }}
           className="inline-flex items-center gap-1 text-xs font-semibold cursor-pointer"
           style={{ color: 'var(--brand-deep)' }}
         >
@@ -191,7 +191,7 @@ export default function ReportsPage() {
             columns={columns}
             rows={rows}
             rowKey={r => r.sessionId}
-            onRowClick={r => navigate(`/report/${r.sessionId}`)}
+            onRowClick={r => navigate(`/task/${r.sessionId}`)}
             empty={label('platform.reports.empty', '暂无已完成任务的报告')}
           />
         )}

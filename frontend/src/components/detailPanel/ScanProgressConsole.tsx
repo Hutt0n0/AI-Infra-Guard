@@ -35,7 +35,7 @@ import {
  *    其余条目的 actionLog 承载工具输出
  */
 
-interface LlmTrace {
+export interface LlmTrace {
   model: string;
   iteration?: number;
   stage?: string;
@@ -70,7 +70,7 @@ const stageLabel = (id: string, lang: string) => {
   return lang.startsWith('zh') ? def.zh : def.en;
 };
 
-const parseLlmTrace = (actionLog: string): LlmTrace | null => {
+export const parseLlmTrace = (actionLog: string): LlmTrace | null => {
   if (!actionLog) return null;
   try {
     const payload = JSON.parse(actionLog);
@@ -603,7 +603,7 @@ interface TraceCall {
   lastTime?: Date;
 }
 
-const TraceStreamView: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces }) => {
+export const TraceStreamView: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces }) => {
   const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
@@ -614,7 +614,7 @@ const TraceStreamView: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces }) 
   const { calls, counts } = useMemo(() => {
     const map = new Map<string, TraceCall>();
     const order: string[] = [];
-    let c = { request: 0, response: 0, error: 0 };
+    const c = { request: 0, response: 0, error: 0 };
     for (const tr of [...traces].sort(
       (a, b) => a.timestamp - b.timestamp
     )) {

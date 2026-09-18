@@ -9,6 +9,7 @@ import RuleLibraryPage from '../../pages/RuleLibraryPage';
 import AgentsPage from '../../pages/AgentsPage';
 import JailbreakPage from '../../pages/JailbreakPage';
 import ReportsPage from '../../pages/ReportsPage';
+import TaskDetailPage from '../../pages/TaskDetailPage';
 import HelpDocumentPage from '../../pages/HelpDocumentPage';
 
 /**
@@ -22,7 +23,10 @@ export default function PlatformApp() {
         <Route path="/help" element={<HelpDocumentPage />} />
         <Route element={<PlatformShell />}>
           <Route index element={<DashboardPage />} />
+          {/* 任务中心（sessionId 直达详情右栏） */}
           <Route path="tasks" element={<TaskCenterPage />} />
+          {/* 统一任务详情页（4 Tab：控制台/目标通信/模型往来/报告） */}
+          <Route path="task/:sessionId" element={<TaskDetailPage />} />
           {/* 5 类扫描能力独立菜单（历史任务 + 指标）— key 强制类型切换时整页重挂载 */}
           <Route path="scan/:scanType" element={<ScanTypePageWithKey />} />
           {/* 新建扫描表单（Topbar CTA / 类型页「新建此类扫描」入口） */}

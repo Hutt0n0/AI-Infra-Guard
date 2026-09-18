@@ -114,7 +114,7 @@ export default function NotificationBell() {
     });
     setOpen(false);
     if (item.newStatus === 'completed') {
-      navigate(`/report/${item.taskId}`);
+      navigate(`/task/${item.taskId}`);
     } else {
       navigate(`/tasks?sessionId=${item.taskId}`);
     }
