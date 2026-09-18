@@ -220,13 +220,29 @@ async def main() -> None:
     if not args.aig_mode:
         print(_BANNER)
 
+    # Validate the requested skill subset so a typo falls fast with a clear
+    # error instead of silently falling back to the full default set.
+    selected_skills = None
+    if args.skills:
+        from agent_scan.core.agent import _DETECTION_SKILLS
+
+        requested = [s.strip() for s in args.skills.split(",") if s.strip()]
+        unknown = [s for s in requested if s not in _DETECTION_SKILLS]
+        if unknown:
+            msg = f"Unknown detection skills: {', '.join(unknown)}. Available: {', '.join(_DETECTION_SKILLS)}"
+            logger.error(msg)
+            scanLogger.error_log(msg)
+            return
+        if requested:
+            selected_skills = requested
+
     agent = Agent(
         llm=llm,
         specialized_llms=specialized_llms,
         debug=args.debug,
         language=args.language,
         agent_provider=agent_provider,
-        skills=args.skills.split(",") if args.skills else None,
+        skills=selected_skills,
     )
     try:
         logger.info(f"Starting scan on: {args.repo}")

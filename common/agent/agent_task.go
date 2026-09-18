@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/Tencent/AI-Infra-Guard/common/utils"
 )
@@ -47,6 +48,7 @@ func (m *AgentTask) Execute(ctx context.Context, request TaskRequest, callbacks 
 
 	type AgentScanParams struct {
 		AgentData string    `json:"agent_data"` // yaml content from dispatchTask
+		Skills    []string  `json:"skills"`     // optional detection skill subset
 		EvalModel EvalModel `json:"eval_model"`
 	}
 
@@ -102,6 +104,12 @@ func (m *AgentTask) Execute(ctx context.Context, request TaskRequest, callbacks 
 	argv = append(argv, "--agent_provider", tmpFile.Name())
 	argv = append(argv, "--language", language)
 	argv = append(argv, "--aig-mode")
+
+	// Optional skill subset: forward selected detection skills so only the
+	// matching workers run; empty/missing selects the full default set.
+	if len(params.Skills) > 0 {
+		argv = append(argv, "--skills", strings.Join(params.Skills, ","))
+	}
 
 	// Define task titles
 	var taskTitles []string

@@ -41,6 +41,32 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : task
         ),
       };
+
+    case 'TERMINATE_TASK_STEPS':
+      // Close out any in-flight plan steps / subSteps so the UI stops spinning after termination
+      return {
+        ...state,
+        tasks: state.tasks.map(task => {
+          if (task.id !== action.payload) return task;
+          const hasDoingStep = task.plan.some(step => step.status === 'doing');
+          if (!hasDoingStep) return task;
+          return {
+            ...task,
+            plan: task.plan.map(step => {
+              if (step.status !== 'doing') return step;
+              return {
+                ...step,
+                status: 'done' as const,
+                endTime: new Date(),
+                details: step.details || '任务已终止',
+                subSteps: step.subSteps?.map(sub =>
+                  sub.status === 'doing' ? { ...sub, status: 'done' as const } : sub
+                ),
+              };
+            }),
+          };
+        }),
+      };
     
     case 'DELETE_TASK':
       return {
@@ -378,6 +404,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // If no plan data was returned from the API, use an empty array
       if (planSteps.length === 0) {
         planSteps = [];
+      }
+      // For terminal-status tasks, close out any plan step still marked 'doing' so
+      // historical replay does not leave step cards spinning forever
+      if (['done', 'terminated', 'error'].includes(taskData.status)) {
+        planSteps = planSteps.map(step =>
+          step.status === 'doing'
+            ? {
+                ...step,
+                status: 'done' as const,
+                endTime: step.endTime || new Date(taskData.updatedAt || Date.now()),
+                details: step.details || (taskData.status === 'terminated' ? '任务已终止' : ''),
+                subSteps: step.subSteps?.map(sub =>
+                  sub.status === 'doing' ? { ...sub, status: 'done' as const } : sub
+                ),
+              }
+            : step
+        );
       }
       // Assemble the other messages
       // 1. User message

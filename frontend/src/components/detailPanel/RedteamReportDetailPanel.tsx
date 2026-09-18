@@ -36,6 +36,7 @@ interface RedteamReportDetailPanelProps {
   onToggleFullscreen?: () => void;
   hideFullscreenButton?: boolean;
   sessionId?: string;
+  onBack?: () => void;
 }
 
 const RedteamReportDetailPanel: React.FC<RedteamReportDetailPanelProps> = ({ 
@@ -45,6 +46,7 @@ const RedteamReportDetailPanel: React.FC<RedteamReportDetailPanelProps> = ({
   selectedTool,
   isFullscreen = false, 
   onToggleFullscreen,
+  onBack,
   hideFullscreenButton = false,
   sessionId
 }) => {
@@ -301,6 +303,7 @@ const RedteamReportDetailPanel: React.FC<RedteamReportDetailPanelProps> = ({
       selectedTool={selectedTool}
       isFullscreen={isFullscreen}
       onToggleFullscreen={onToggleFullscreen}
+      onBack={onBack}
       emptyMessage={t('redteam.selectExecutionStep')}
     >
       {/* Model red-team evaluation result */}

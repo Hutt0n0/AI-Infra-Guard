@@ -108,6 +108,7 @@ type AgentScanTaskRequest struct {
 	EvalModel   ModelParams `json:"eval_model"`                                                           // Evaluation model config - optional, falls back to system default
 	Language    string      `json:"language,omitempty" example:"zh"`                                      // Language code - optional
 	Prompt      string      `json:"prompt,omitempty" example:"Focus on privilege escalation and data leakage risks"` // Additional scan instructions - optional
+	Skills      []string    `json:"skills,omitempty"`                                                     // Optional detection-skill subset; empty runs all default skills
 }
 
 // SkillScanTaskRequest represents Skill security scan task request structure
@@ -538,6 +539,10 @@ func SubmitTask(c *gin.Context, tm *TaskManager) {
 				"base_url": evalModel.BaseUrl,
 				"limit":    evalModel.Limit,
 			},
+		}
+		// Optional detection-skill subset (empty = run all default skills).
+		if len(req.Skills) > 0 {
+			params["skills"] = req.Skills
 		}
 
 		taskReq = TaskCreateRequest{

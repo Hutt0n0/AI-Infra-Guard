@@ -206,6 +206,15 @@ class RedTeamRunner:
                     logger.tool_used(toolUsed(stepId="2", tool_id=tool_id, brief=logger.translated_msg(
                     "The selected attacks are all invalid for the current model. Please try other attacks."
                 ), status="done"))
+                    logger.status_update(statusUpdate(stepId="2", brief=logger.translated_msg("Risk Assessment"), description=logger.translated_msg(
+                        "Pre-verification attacks"
+                    ), status="completed"))
+                    # 无可用攻击方法时直接终止：继续跑只会产出 0 条结果的
+                    # 空报告，用户会误以为目标通过了全部攻击。
+                    logger.critical_issue(content=logger.translated_msg(
+                        "The selected attacks are all invalid for the current model. Please try other attacks."
+                    ))
+                    return
                 else:
                     logger.tool_used(toolUsed(stepId="2", tool_id=tool_id, brief=logger.translated_msg(
                         "Attacks that passed verification: {attacks}", attacks=", ".join([attack.get_name() for attack in reserved_attacks])

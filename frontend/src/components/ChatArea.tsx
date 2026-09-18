@@ -7,11 +7,9 @@ import { toast } from 'sonner';
 import { ModelItem } from '../types/model';
 import HttpHeaderDialog from './HttpHeaderDialog';
 import ReactDOM from 'react-dom';
-import TaskConfirmationMessage from './TaskConfirmationMessage';
-import TaskExecutionTimeline from './TaskExecutionTimeline';
+import TaskConfirmationMessage from './TaskConfirmationMessage';import TaskExecutionTimeline from './TaskExecutionTimeline';
 import EditTitleDialog from './EditTitleDialog';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
-import CollapsibleTaskPlan from './CollapsibleTaskPlan';
 import FloatingInputArea from './floatingInputArea/FloatingInputArea';
 import StarPrompt from './StarPrompt';
 import { shouldShowModelButton } from '../utils/taskUtils';
@@ -99,6 +97,41 @@ interface ChatAreaProps {
   welcomeAnimationCompleted?: boolean;
 }
 
+// Parallel skill workers report event step IDs like "2a".."2j" which do not
+// exist in the 3-stage plan ("1"/"2"/"3") emitted by planUpdate. Without a
+// mapping, every worker-level statusUpdate/toolUsed/actionLog is silently
+// dropped (step lookup fails) and the plan UI freezes on the previous stage
+// until the next stage's newPlanStep cascades everything to "done". This
+// registry maps worker IDs to their parent pipeline stage per session.
+const workerStageRegistry = new Map<string, Map<string, string>>();
+
+const registerWorkerStage = (sessionId: string, workerStepId: string) => {
+  const match = workerStepId.match(/^(\d+)[a-z]+$/);
+  if (!match) return;
+  let registry = workerStageRegistry.get(sessionId);
+  if (!registry) {
+    registry = new Map();
+    workerStageRegistry.set(sessionId, registry);
+  }
+  registry.set(workerStepId, match[1]);
+};
+
+// Resolve a planStepId that may reference a parallel skill worker ("2a")
+// to its parent pipeline stage ("2"); returns the input otherwise.
+const resolvePlanStepId = (sessionId: string, planStepId: string): string => {
+  return workerStageRegistry.get(sessionId)?.get(planStepId) || planStepId;
+};
+
+// Return the worker ID when the planStepId references a parallel skill
+// worker ("2a"), so worker events can be keyed under the worker's own
+// stable subStep; returns undefined for regular stage events.
+const resolveWorkerId = (sessionId: string, planStepId: string): string | undefined => {
+  if (/^\d+[a-z]+$/.test(planStepId) && workerStageRegistry.get(sessionId)?.has(planStepId)) {
+    return planStepId;
+  }
+  return undefined;
+};
+
 const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpResultSelect, onToolSelect, welcomeAnimationCompleted }) => {
   const { state, actions, dispatch } = useApp();
   const { t, i18n } = useTranslation();
@@ -126,6 +159,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
   const [showHttpHeaderDialog, setShowHttpHeaderDialog] = useState(false);
   const [selectedEvaluations, setSelectedEvaluations] = useState<EvaluationItem[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string | undefined>(undefined);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  // Red-team (Model-Redteam-Report) target when evaluating an AI agent
+  const [selectedTargetAgent, setSelectedTargetAgent] = useState<string | undefined>(undefined);
   const [selectedAttackMethods, setSelectedAttackMethods] = useState<string[]>([]);
   const [maxEvaluationCount, setMaxEvaluationCount] = useState<number>(-1);
 
@@ -227,6 +263,12 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
         break;
         
       case 'newPlanStep':
+        // Worker step IDs like "2a" belong to the parallel detection stage;
+        // register them so their later events map to parent stage "2".
+        if (/^\d+[a-z]+$/.test(data.event.stepId)) {
+          registerWorkerStage(data.sessionId, data.event.stepId);
+          break;
+        }
 
         const newStep = {
           id: data.event.stepId,
@@ -263,6 +305,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
           }
 
           if (data.event?.agentStatus === 'terminated' || data.event?.agentStaus === 'terminated') {
+            // Close in-flight plan steps first so step cards stop spinning, then mark task terminated
+            dispatch({ type: 'TERMINATE_TASK_STEPS', payload: data.sessionId });
             dispatch({
               type: 'UPDATE_TASK',
               payload: {
@@ -279,8 +323,16 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
 
         const status = data.event.agentStaus || data.event.agentStatus;
         const rawTimestamp = data.event.timestamp;
+        const workerStepId = resolveWorkerId(data.sessionId, data.event.planStepId);
+        // Worker events attach to the parent pipeline stage ("2") as a subStep
+        // keyed by the worker's own stable ID ("2a"); regular stage events keep
+        // the planStepId as-is with the Go-side per-iteration statusId.
+        const statusPlanStepId = resolvePlanStepId(data.sessionId, data.event.planStepId);
+        const subStepId = workerStepId
+          || data.event.id
+          || `${statusPlanStepId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const newSubStep = {
-          id: data.event.id || `${data.event.planStepId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: subStepId,
           brief: data.event.brief,
           description: data.event.description || '',
           status: mapStatusToStepStatus(status),
@@ -288,9 +340,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
           timestamp: rawTimestamp ? new Date(rawTimestamp > 1e12 ? rawTimestamp : rawTimestamp * 1000) : undefined,
           toolUsed: [],
         };
-        actions.addSubStep(data.sessionId, data.event.planStepId, newSubStep);
+        actions.addSubStep(data.sessionId, statusPlanStepId, newSubStep);
         break;
-        
+
       case 'toolUsed':
         const toolUsed = data.event.tools.map((tool) => ({
           id: tool.toolId || tool.brief || Math.random().toString(),
@@ -303,12 +355,22 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
           toolId: tool.toolId,
           actionLog: '', // Initialize the actionLog field
         }));
-        actions.updateStepTools(data.sessionId, data.event.planStepId, data.event.statusId, toolUsed);
+        {
+          const toolPlanStepId = resolvePlanStepId(data.sessionId, data.event.planStepId);
+          const toolWorkerId = resolveWorkerId(data.sessionId, data.event.planStepId);
+          const toolStatusId = toolWorkerId || data.event.statusId;
+          actions.updateStepTools(data.sessionId, toolPlanStepId, toolStatusId, toolUsed);
+        }
         break;
-        
+
       case 'actionLog':
         // Use a dedicated action to update actionLog
-        actions.updateActionLog(data.sessionId, data.event.planStepId, data.event.actionId, data.event.actionLog);
+        actions.updateActionLog(
+          data.sessionId,
+          resolvePlanStepId(data.sessionId, data.event.planStepId),
+          data.event.actionId,
+          data.event.actionLog,
+        );
         break;
         
       case 'resultUpdate':
@@ -475,6 +537,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
       }
 
       if (payload.event.agentStatus === 'terminated' || payload.event.agentStaus === 'terminated') {
+        // Close in-flight plan steps first so step cards stop spinning, then mark task terminated
+        dispatch({ type: 'TERMINATE_TASK_STEPS', payload: payload.sessionId });
         dispatch({
           type: 'UPDATE_TASK',
           payload: {
@@ -868,6 +932,16 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
       // For an Agent-Scan task, add the agent parameter
       if (taskType === 'Agent-Scan' && selectedAgent) {
         params.agent_id = selectedAgent;
+        // Optional detection-skill subset; empty array = run all default skills
+        if (selectedSkills.length > 0) {
+          params.skills = selectedSkills;
+        }
+      }
+
+      // For a Model-Redteam-Report task with an agent target, the server
+      // resolves the agent YAML; params.model stays empty in this mode.
+      if (taskType === 'Model-Redteam-Report' && selectedTargetAgent) {
+        params.target_agent_id = selectedTargetAgent;
       }
 
       const requestBody = {
@@ -1392,6 +1466,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
 
   const handleAgentSelect = (agent: string) => {
     setSelectedAgent(agent);
+    // Skill choices are per-agent; reset when switching targets
+    setSelectedSkills([]);
   };
 
   if (!currentTask) {
@@ -1436,6 +1512,10 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
               onEvaluationsSelect={handleEvaluationsSelect}
               selectedAgent={selectedAgent}
               onAgentSelect={handleAgentSelect}
+              selectedSkills={selectedSkills}
+              onSkillsSelect={setSelectedSkills}
+              selectedTargetAgent={selectedTargetAgent}
+              onTargetAgentSelect={setSelectedTargetAgent}
               selectedAttackMethods={selectedAttackMethods}
               onAttackMethodsSelect={setSelectedAttackMethods}
               triggerWelcomeAnimation={state.triggerWelcomeAnimation}
@@ -1858,6 +1938,12 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
         onClearMcpService={clearSelectedMcpService}
         selectedEvaluations={selectedEvaluations}
         onEvaluationsSelect={handleEvaluationsSelect}
+        selectedAgent={selectedAgent}
+        onAgentSelect={handleAgentSelect}
+        selectedSkills={selectedSkills}
+        onSkillsSelect={setSelectedSkills}
+        selectedTargetAgent={selectedTargetAgent}
+        onTargetAgentSelect={setSelectedTargetAgent}
         selectedAttackMethods={selectedAttackMethods}
         onAttackMethodsSelect={setSelectedAttackMethods}
         triggerWelcomeAnimation={state.triggerWelcomeAnimation}
@@ -1898,40 +1984,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
         loadingText={t('taskTerminate.terminating')}
         cancelText={t('taskTerminate.cancel')}
       />
-      {/* Task progress floating box above the floating input area */}
-      {currentTask?.plan && currentTask?.plan.length > 0 && (
-        <div
-          ref={taskPlanRef}
-          className="m-4"
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: '0px',
-            display: 'flex',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-          }}
-        >
-          <div
-            style={{
-              width: '100%',
-              background: 'white',
-              borderRadius: 20,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              border: '1px solid #e5e7eb',
-              padding: 12,
-              pointerEvents: 'auto',
-            }}
-          >
-            <CollapsibleTaskPlan
-              steps={currentTask?.plan || []}
-              taskTitle={currentTask?.title || ''}
-              onExpandedChange={handleTaskPlanExpandedChange}
-            />
-          </div>
-        </div>
-      )}
+      {/* Task progress floating box above the floating input area removed:
+          the in-chat execution timeline already renders the same plan data,
+          so the overview duplicated the working panel. */}
     </div>
     </TooltipProvider>
   );

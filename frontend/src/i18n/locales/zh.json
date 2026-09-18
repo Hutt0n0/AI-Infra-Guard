@@ -810,6 +810,16 @@
       "content": "当前选择的评测集或攻击方法较多，将消耗大量 Token，请谨慎选择。",
       "cancel": "取消",
       "confirm": "继续"
+    },
+    "redteam": {
+      "targetModel": "模型 API",
+      "targetAgent": "Agent",
+      "targetAgentPrefix": "被测Agent",
+      "selectTargetAgent": "选择被测Agent"
+    },
+    "skills": {
+      "title": "检测技能（不选=全量）",
+      "clear": "清空"
     }
   },
   "language": {
@@ -980,7 +990,7 @@
   "llmProxyDetect": {
     "page": {
       "title": "大模型 API 投毒检测",
-    "subtitle": "配置您的 LLM 中转代理参数，进行诊断审计与安全验证。",
+      "subtitle": "配置您的 LLM 中转代理参数，进行诊断审计与安全验证。",
       "heroBadge": "API 安全诊断与审计"
     },
     "targetEndpoint": {
@@ -1002,7 +1012,7 @@
       "relayApiUrl": "中转站 API 地址",
       "relayApiUrlPlaceholder": "请填写中转站 Base URL，例如 https://api.openai.com/v1",
       "apiKey": "API Key / 授权令牌",
-  "apiKeyPlaceholder": "sk-xxxxxxxxxxxxxxxxxxxxxxxx",
+      "apiKeyPlaceholder": "sk-xxxxxxxxxxxxxxxxxxxxxxxx",
       "apiKeySecurityHint": "仅本次检测使用，不会存储或转发",
       "customModelName": "模型名称",
       "customModelPlaceholder": "请输入非内置/非内测的模型名称，例如 my-custom-model",
@@ -1018,58 +1028,58 @@
     },
     "principle": {
       "badge": "Core Technology",
- "heroTitle": "纯黑盒探测 · 统计指纹 · 协议深度校验",
+      "heroTitle": "纯黑盒探测 · 统计指纹 · 协议深度校验",
       "heroSubtitle": "无需接触中转站的源码与内部配置，通过标准 API 通道下发多维探针，结合贝叶斯统计与协议级校验，输出可复现、可解释的风险证据链。",
       "card1": {
-              "tag": "快速扫描",
-   "title": "多维黑盒探针",
-"desc": "30 秒内暴露常见风险。以 7 类正交探针并发下发，从连通性、身份、Token、回显、流式、上下文六个维度交叉验证响应真实性。",
-    "points": [
-        "模型列表与身份自报：识别模型缺失、假模型与身份伪造",
+        "tag": "快速扫描",
+        "title": "多维黑盒探针",
+        "desc": "30 秒内暴露常见风险。以 7 类正交探针并发下发，从连通性、身份、Token、回显、流式、上下文六个维度交叉验证响应真实性。",
+        "points": [
+          "模型列表与身份自报：识别模型缺失、假模型与身份伪造",
           "Token 偏差与回显命令：捕捉计费异常与提示词注入痕迹",
           "SSE 流完整性与 Canary 长上下文：暴露丢包截断与偷工减料"
-    ]
+        ]
       },
       "card2": {
-  "tag": "全面扫描",
-   "title": "大模型统计指纹",
- "desc": "精准识别掺假与替身模型。在 1~355 区间重复采样，基于 Dirichlet 平滑与 Multinomial 后验预测，将实测分布与参考基准做贝叶斯对比。",
+        "tag": "全面扫描",
+        "title": "大模型统计指纹",
+        "desc": "精准识别掺假与替身模型。在 1~355 区间重复采样，基于 Dirichlet 平滑与 Multinomial 后验预测，将实测分布与参考基准做贝叶斯对比。",
         "points": [
           "对数贝叶斯因子 + G² 异常值双重推断",
           "在已声明模型、已知替身、未知异常之间给出可解释判定",
-     "结果配 355 维分布对比图，偏差点、置信度一目了然"
+          "结果配 355 维分布对比图，偏差点、置信度一目了然"
         ]
       },
       "card3": {
-     "tag": "Claude 专属",
+        "tag": "Claude 专属",
         "title": "协议级深度校验",
         "desc": "思维链签名与元数据交叉校验。针对 Extended Thinking，解析 signature 封装并回放至 API 二次验证，防伪装。",
-      "points": [
+        "points": [
           "Signature 结构解析与密文特征回放验证",
-   "thinking_tokens、stop_reason、响应头多维交叉比对",
+          "thinking_tokens、stop_reason、响应头多维交叉比对",
           "结合延迟与系统提示词特征，深度识别协议级伪造"
         ]
-   },
+      },
       "advantagesTitle": "四大平台优势",
       "advantages": {
         "blackbox": {
-   "title": "纯黑盒无侵入",
-      "desc": "不依赖中转站源码，仅通过标准接口探测，零配置接入即用。"
+          "title": "纯黑盒无侵入",
+          "desc": "不依赖中转站源码，仅通过标准接口探测，零配置接入即用。"
         },
-  "evidence": {
-        "title": "多维证据链",
-       "desc": "指纹、协议、元数据深度交叉印证，构建完整证据链，杜绝单点误判。"
+        "evidence": {
+          "title": "多维证据链",
+          "desc": "指纹、协议、元数据深度交叉印证，构建完整证据链，杜绝单点误判。"
         },
         "fingerprint": {
- "title": "统计学可解释",
-    "desc": "输出严谨置信度、候选替身与偏差区间，结论完全可复现可追溯。"
+          "title": "统计学可解释",
+          "desc": "输出严谨置信度、候选替身与偏差区间，结论完全可复现可追溯。"
         },
-     "report": {
+        "report": {
           "title": "一键专业报告",
           "desc": "自动生成双语可视化分析报告，支持导出 PDF，直接用于合规与验收。"
-   }
+        }
       },
-   "footnote": "* 指纹检测提供统计学证据，结果可能受模型版本更新、系统提示词、温度参数及中转站动态路由等因素影响。"
+      "footnote": "* 指纹检测提供统计学证据，结果可能受模型版本更新、系统提示词、温度参数及中转站动态路由等因素影响。"
     },
     "overlay": {
       "connecting": "正在连接检测服务…",
@@ -1138,33 +1148,59 @@
       "verdictPass": "通过",
       "verdictFail": "不通过",
       "noFindings": "暂无异常发现",
-"poweredBy": "技术支持：",
+      "poweredBy": "技术支持：",
       "fingerprint": {
         "badge": "指纹分布匹配",
         "title": "从采样分布推算模型身份",
         "sampleSize": "{{count}} 个有效样本",
-      "candidateHint": "与 {{count}} 个参考指纹逐一比对",
-    "legendObserved": "本次实测",
+        "candidateHint": "与 {{count}} 个参考指纹逐一比对",
+        "legendObserved": "本次实测",
         "legendReference": "匹配基准",
         "finalModel": "最终推算模型",
         "confidence": "身份推断置信度",
-     "confidenceDesc": "在一定置信度下，系统认为的识别概率。",
-    "overlapTitle": "曲线重合度",
+        "confidenceDesc": "在一定置信度下，系统认为的识别概率。",
+        "overlapTitle": "曲线重合度",
         "overlapDescHigh": "整体高度重合",
-    "overlapDescMid": "整体接近，存在局部偏差",
+        "overlapDescMid": "整体接近，存在局部偏差",
         "overlapDescLow": "存在较明显偏差",
         "deviationTitle": "最大局部偏差",
         "deviationValue": "相差 {{diff}} 个百分点",
         "deviationDesc": "{{start}}–{{end}}：实测 {{observed}}% / 基准 {{reference}}%",
- "runnerUpTitle": "第二候选模型",
+        "runnerUpTitle": "第二候选模型",
         "runnerUpDesc": "置信度 {{percent}}%",
-  "verdictStable": "身份推断稳定，局部曲线偏差未触发模型替换告警。",
-      "verdictMismatch": "曲线差异已影响身份判断，请结合模型指纹告警进一步核查",
-      "verdictInsufficient": "当前证据不足以稳定判断，建议增加采样后重新检测",
+        "verdictStable": "身份推断稳定，局部曲线偏差未触发模型替换告警。",
+        "verdictMismatch": "曲线差异已影响身份判断，请结合模型指纹告警进一步核查",
+        "verdictInsufficient": "当前证据不足以稳定判断，建议增加采样后重新检测",
         "stepGenerate": "生成实测分布",
         "stepOverlay": "叠加基准指纹",
         "stepOutput": "输出推算结果"
       }
     }
+  },
+  "scanConsole": {
+    "title": "扫描过程控制台",
+    "tabPipeline": "流程总览",
+    "tabLlm": "LLM 决策流",
+    "tabAudit": "动作审计",
+    "workersDone": "检测 Worker 完成",
+    "iterations": "迭代",
+    "toolCalls": "工具调用",
+    "workerConcurrency": "（串行领取，最多并发 4）",
+    "workersPending": "检测 Worker 尚未启动",
+    "stage2": "漏洞检测",
+    "noLlmMessages": "暂无 LLM 输出",
+    "noAuditEntries": "暂无工具调用",
+    "hasOutput": "有输出",
+    "sinceActivity": "前活动",
+    "idle": "当前无执行中的步骤",
+    "nowTesting": "正在测试",
+    "workersDoneShort": "workers",
+    "request": "请求（prompt + 工具回填）",
+    "response": "响应（LLM 原始输出）",
+    "workersSection": "Stage 2 检测 Worker（点击查看工作详情）",
+    "noTrace": "暂无 LLM Trace（等待第一次模型调用）",
+    "llmThinking": "LLM 思考/决策",
+    "back": "返回",
+    "stepNotStarted": "该阶段尚未产生活动"
   }
 }

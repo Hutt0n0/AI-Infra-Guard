@@ -811,6 +811,16 @@
       "content": "Selecting multiple datasets or attack methods will consume a significant amount of tokens. Please proceed with caution.",
       "cancel": "Cancel",
       "confirm": "Continue"
+    },
+    "redteam": {
+      "targetModel": "Model API",
+      "targetAgent": "Agent",
+      "targetAgentPrefix": "Target Agent",
+      "selectTargetAgent": "Select target Agent"
+    },
+    "skills": {
+      "title": "Detection skills (none = all)",
+      "clear": "Clear"
     }
   },
   "language": {
@@ -982,7 +992,7 @@
     "page": {
       "title": "LLM API Poisoning Detection",
       "subtitle": "Configure your LLM proxy parameters for diagnostic auditing and security verification.",
-        "heroBadge": "API Security Diagnostic & Audit"
+      "heroBadge": "API Security Diagnostic & Audit"
     },
     "targetEndpoint": {
       "title": "Detection Target",
@@ -1003,7 +1013,7 @@
       "relayApiUrl": "Relay API URL",
       "relayApiUrlPlaceholder": "Enter the relay Base URL, e.g. https://api.openai.com/v1",
       "apiKey": "API Key / Authorization Token",
-"apiKeyPlaceholder": "sk-xxxxxxxxxxxxxxxxxxxxxxxx",
+      "apiKeyPlaceholder": "sk-xxxxxxxxxxxxxxxxxxxxxxxx",
       "apiKeySecurityHint": "Used for this scan only. Never stored or forwarded.",
       "customModelName": "Model Name",
       "customModelPlaceholder": "Enter a non-built-in / non-preset model name, e.g. my-custom-model",
@@ -1019,57 +1029,57 @@
     },
     "principle": {
       "badge": "Core Technology",
-    "heroTitle": "Pure Black-box · Statistical Fingerprint · Protocol-level Verification",
+      "heroTitle": "Pure Black-box · Statistical Fingerprint · Protocol-level Verification",
       "heroSubtitle": "No access to relay source code or internal config required. Multi-dimensional probes delivered through the standard API channel, combined with Bayesian statistics and protocol-level checks, produce a reproducible and explainable evidence chain.",
       "card1": {
         "tag": "QUICK MODE",
-    "title": "Multi-dimensional Black-box Probes",
-      "desc": "Expose common risks within 30 seconds. Seven orthogonal probes are fired in parallel, cross-validating response authenticity across liveness, identity, token accounting, echo, streaming and long-context integrity.",
+        "title": "Multi-dimensional Black-box Probes",
+        "desc": "Expose common risks within 30 seconds. Seven orthogonal probes are fired in parallel, cross-validating response authenticity across liveness, identity, token accounting, echo, streaming and long-context integrity.",
         "points": [
- "Model list & identity self-report: catch missing models, fakes and identity forgery",
-      "Token delta & echo commands: detect billing anomalies and prompt-injection traces",
-        "SSE integrity & long-context canary: uncover packet loss, truncation and silent trimming"
-  ]
-  },
+          "Model list & identity self-report: catch missing models, fakes and identity forgery",
+          "Token delta & echo commands: detect billing anomalies and prompt-injection traces",
+          "SSE integrity & long-context canary: uncover packet loss, truncation and silent trimming"
+        ]
+      },
       "card2": {
-      "tag": "FULL MODE",
-            "title": "LLM Statistical Fingerprint",
+        "tag": "FULL MODE",
+        "title": "LLM Statistical Fingerprint",
         "desc": "Precisely identify look-alike and substituted models. Repeated sampling over the 1–355 range with Dirichlet smoothing and Multinomial posterior prediction is Bayesian-compared against a reference baseline.",
         "points": [
           "Log Bayes factor + G² outlier statistics for dual-track inference",
-    "Explainable verdict across declared model, known substitute or unknown anomaly",
+          "Explainable verdict across declared model, known substitute or unknown anomaly",
           "355-bucket distribution overlay with deviation hotspots and confidence at a glance"
-  ]
+        ]
       },
       "card3": {
-     "tag": "CLAUDE ONLY",
+        "tag": "CLAUDE ONLY",
         "title": "Protocol-level Deep Verification",
-   "desc": "Chain-of-thought signature & metadata cross-check. For Extended Thinking, parse the signature envelope and replay it against the API for second-round verification — defeating spoofing.",
+        "desc": "Chain-of-thought signature & metadata cross-check. For Extended Thinking, parse the signature envelope and replay it against the API for second-round verification — defeating spoofing.",
         "points": [
-  "Signature structure parsing & cipher-feature replay verification",
-       "Cross-checks thinking_tokens, stop_reason and response headers",
-      "Combined with latency and system-prompt features to deeply detect protocol-level forgery"
-     ]
-   },
+          "Signature structure parsing & cipher-feature replay verification",
+          "Cross-checks thinking_tokens, stop_reason and response headers",
+          "Combined with latency and system-prompt features to deeply detect protocol-level forgery"
+        ]
+      },
       "advantagesTitle": "Four Platform Advantages",
-  "advantages": {
+      "advantages": {
         "blackbox": {
-       "title": "Pure Black-box, Zero Intrusion",
-    "desc": "No source-code access needed. Only standard API endpoints are probed — plug and play with zero configuration."
+          "title": "Pure Black-box, Zero Intrusion",
+          "desc": "No source-code access needed. Only standard API endpoints are probed — plug and play with zero configuration."
         },
         "evidence": {
           "title": "Multi-source Evidence Chain",
-    "desc": "Fingerprint, protocol and metadata cross-corroborate to form a complete evidence chain, eliminating single-point misjudgment."
-     },
-      "fingerprint": {
-    "title": "Statistically Explainable",
-   "desc": "Outputs rigorous confidence, runner-up candidates and deviation ranges — fully reproducible and traceable."
-     },
-   "report": {
+          "desc": "Fingerprint, protocol and metadata cross-corroborate to form a complete evidence chain, eliminating single-point misjudgment."
+        },
+        "fingerprint": {
+          "title": "Statistically Explainable",
+          "desc": "Outputs rigorous confidence, runner-up candidates and deviation ranges — fully reproducible and traceable."
+        },
+        "report": {
           "title": "One-click Professional Report",
-     "desc": "Automatically generates bilingual, visual analysis reports with PDF export — ready for compliance and acceptance."
-   }
-  },
+          "desc": "Automatically generates bilingual, visual analysis reports with PDF export — ready for compliance and acceptance."
+        }
+      },
       "footnote": "* Fingerprinting provides statistical evidence. Results may be affected by model updates, system prompts, temperature settings, and dynamic routing on the relay side."
     },
     "overlay": {
@@ -1138,34 +1148,60 @@
       "colResult": "Result",
       "verdictPass": "Passed",
       "verdictFail": "Failed",
-  "noFindings": "No anomaly findings",
+      "noFindings": "No anomaly findings",
       "poweredBy": "Powered by:",
       "fingerprint": {
- "badge": "Fingerprint Match",
+        "badge": "Fingerprint Match",
         "title": "Infer model identity from sampling distribution",
         "sampleSize": "{{count}} valid samples",
         "candidateHint": "Compared against {{count}} reference fingerprints",
         "legendObserved": "Observed",
-     "legendReference": "Reference",
+        "legendReference": "Reference",
         "finalModel": "Predicted Model",
         "confidence": "Identity Confidence",
         "confidenceDesc": "Estimated probability under the current confidence level.",
-               "overlapTitle": "Distribution Overlap",
-   "overlapDescHigh": "Highly aligned overall",
+        "overlapTitle": "Distribution Overlap",
+        "overlapDescHigh": "Highly aligned overall",
         "overlapDescMid": "Overall similar with local deviations",
-    "overlapDescLow": "Noticeable divergence detected",
-  "deviationTitle": "Largest Local Deviation",
-     "deviationValue": "{{diff}} pp difference",
+        "overlapDescLow": "Noticeable divergence detected",
+        "deviationTitle": "Largest Local Deviation",
+        "deviationValue": "{{diff}} pp difference",
         "deviationDesc": "{{start}}–{{end}}: observed {{observed}}% / reference {{reference}}%",
-  "runnerUpTitle": "Runner-up Model",
- "runnerUpDesc": "Confidence {{percent}}%",
+        "runnerUpTitle": "Runner-up Model",
+        "runnerUpDesc": "Confidence {{percent}}%",
         "verdictStable": "Identity inference is stable; local deviations did not trigger a model-replacement alert.",
-    "verdictMismatch": "Distribution deviation has affected identity inference. Please cross-check with the model fingerprint alert.",
+        "verdictMismatch": "Distribution deviation has affected identity inference. Please cross-check with the model fingerprint alert.",
         "verdictInsufficient": "Current evidence is insufficient for a stable conclusion. Please collect more samples and retry.",
         "stepGenerate": "Generate observed distribution",
         "stepOverlay": "Overlay reference fingerprint",
-  "stepOutput": "Output inference result"
+        "stepOutput": "Output inference result"
       }
     }
+  },
+  "scanConsole": {
+    "title": "Scan Progress Console",
+    "tabPipeline": "Pipeline",
+    "tabLlm": "LLM Decisions",
+    "tabAudit": "Action Audit",
+    "workersDone": "Workers Done",
+    "iterations": "iterations",
+    "toolCalls": "Tool Calls",
+    "workerConcurrency": "(claim serially, concurrency 4)",
+    "workersPending": "Detection workers not started",
+    "stage2": "Vulnerability Detection",
+    "noLlmMessages": "No LLM output yet",
+    "noAuditEntries": "No tool calls yet",
+    "hasOutput": "output",
+    "sinceActivity": "since last activity",
+    "idle": "No step is currently running",
+    "nowTesting": "Now testing",
+    "workersDoneShort": "workers",
+    "request": "Request (prompt + tool feedback)",
+    "response": "Response (raw LLM output)",
+    "workersSection": "Stage 2 Detection Workers (click for details)",
+    "noTrace": "No LLM trace yet (waiting for first model call)",
+    "llmThinking": "LLM Thinking / Decision",
+    "back": "Back",
+    "stepNotStarted": "No activity in this stage yet"
   }
 }

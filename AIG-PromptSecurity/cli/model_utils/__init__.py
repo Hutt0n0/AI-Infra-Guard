@@ -17,3 +17,4 @@
 # documentation or user interface, as detailed in the NOTICE file.
 
 from .base import BaseLLM
+from .agent_target import AgentTargetModel

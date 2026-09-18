@@ -31,3 +31,17 @@ services/**/*.pyc
 # local deployment & test artifacts
 deploy/
 common/utils/chromium/screenshot.png
+
+# Local binaries and agent working files (native deployment)
+bin/
+.claude/
+
+# Local agent configs may contain real credentials
+data/agents/*/
+!data/agents/.gitkeep
+
+# Python build artifacts
+*.egg-info/
+AIG-PromptSecurity/uv.lock
+agent-scan/uv.lock
+node_modules/

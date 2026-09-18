@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/Tencent/AI-Infra-Guard/common/utils"
 	"github.com/Tencent/AI-Infra-Guard/internal/gologger"
@@ -111,13 +112,23 @@ func ParseStdoutLine(server, rootDir string, tasks []SubTask, line string, callb
 			if v.Status == SubTaskStatusDone {
 				continue
 			} else {
-				if v.StepId == content.StepId {
+				// Match either the exact stage ID ("1"/"2"/"3") or any
+				// child worker ID that belongs to the stage ("2a".."2j"
+				// belong to stage "2"), so progress flips as soon as the
+				// first worker of a stage reports instead of waiting for
+				// the next stage's newPlanStep to cascade "done".
+				matched := v.StepId == content.StepId
+				if !matched && len(content.StepId) > 1 {
+					matched = strings.HasPrefix(content.StepId, v.StepId)
+				}
+				if matched {
 					tasks[i].Status = SubTaskStatusDoing
 					if i > 0 {
 						for j := 0; j < i; j++ {
 							tasks[j].Status = SubTaskStatusDone
 						}
 					}
+					break
 				}
 			}
 		}
@@ -144,7 +155,11 @@ func ParseStdoutLine(server, rootDir string, tasks []SubTask, line string, callb
 			gologger.WithError(err).Errorln("Failed to AgentMsgTypeToolUsed unmarshal command", cmd.Content)
 			return
 		}
-		tool := CreateTool(content.ToolId, content.ToolId, statusString(content.Status), content.Brief, content.Brief, "", content.Params)
+		toolName := content.ToolName
+		if toolName == "" {
+			toolName = content.ToolId
+		}
+		tool := CreateTool(content.ToolId, toolName, statusString(content.Status), content.Brief, content.Brief, "", content.Params)
 		callbacks.ToolUsedCallback(content.StepId, config.StatusId, content.Brief, []Tool{tool})
 	case AgentMsgTypeActionLog:
 		var content CmdActionLog

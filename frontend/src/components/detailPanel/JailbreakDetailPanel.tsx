@@ -38,6 +38,7 @@ interface JailbreakDetailPanelProps {
   onToggleFullscreen?: () => void;
   hideFullscreenButton?: boolean;
   sessionId?: string;
+  onBack?: () => void;
 }
 
 const JailbreakDetailPanel: React.FC<JailbreakDetailPanelProps> = ({ 
@@ -47,6 +48,7 @@ const JailbreakDetailPanel: React.FC<JailbreakDetailPanelProps> = ({
   selectedTool,
   isFullscreen = false, 
   onToggleFullscreen,
+  onBack,
   hideFullscreenButton = false,
   sessionId
 }) => {
@@ -320,6 +322,7 @@ const JailbreakDetailPanel: React.FC<JailbreakDetailPanelProps> = ({
       selectedTool={selectedTool}
       isFullscreen={isFullscreen}
       onToggleFullscreen={onToggleFullscreen}
+      onBack={onBack}
       emptyMessage={t('jailbreak.selectExecutionStep')}
     >
       {/* Model one-click jailbreak result */}

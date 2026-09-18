@@ -9,6 +9,7 @@ import InfraScanDetailPanel from './detailPanel/InfraScanDetailPanel';
 import RedteamReportDetailPanel from './detailPanel/RedteamReportDetailPanel';
 import JailbreakDetailPanel from './detailPanel/JailbreakDetailPanel';
 import AgentScanDetailPanel from './detailPanel/AgentScanDetailPanel';
+import ScanProgressConsole from './detailPanel/ScanProgressConsole';
 import HelpDocumentPage from '../pages/HelpDocumentPage';
 import ReportPage from '../pages/ReportPage';
 import LLMProxyDetectPage from '../pages/LLMProxyDetectPage';
@@ -39,6 +40,8 @@ const AppContent: React.FC = () => {
   const [chatAreaWidth, setChatAreaWidth] = useState<number>(60); // Percentage width
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  // Scan execution stream stage filter (persisted while switching views)
+  const [consoleStageFilter, setConsoleStageFilter] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState<boolean>(env.VITE_ENABLE_WELCOME_ANIMATION);
   const [welcomeAnimationCompleted, setWelcomeAnimationCompleted] = useState<boolean>(!env.VITE_ENABLE_WELCOME_ANIMATION);
 
@@ -255,6 +258,23 @@ const AppContent: React.FC = () => {
   const renderDetailPanel = () => {
     if (!currentTask) return null;
 
+    // Whether the task is still running without a final report (console-visible state)
+    const runningWithoutResult = currentTask.status === 'running' &&
+      !currentTask.messages.some(msg => msg.type === 'result');
+
+    // While a task is running and no step/report is selected, show the live progress console
+    // so users can watch pipeline stages, LLM decisions and tool audit in real time.
+    const hasResultMessage = currentTask.messages.some(msg => msg.type === 'result');
+    if (!selectedStep && !hasResultMessage && currentTask.status === 'running') {
+      return (
+        <ScanProgressConsole
+          task={currentTask}
+          stageFilter={consoleStageFilter}
+          onStageFilterChange={setConsoleStageFilter}
+        />
+      );
+    }
+
     // Choose a different DetailPanel component based on the task type
     switch (currentTask.type) {
       case 'AI-Infra-Scan':
@@ -270,34 +290,37 @@ const AppContent: React.FC = () => {
         );
       case 'Model-Redteam-Report':
         return (
-          <RedteamReportDetailPanel 
+          <RedteamReportDetailPanel
             step={selectedStep}
             stepIndex={selectedStepIndex}
             redteamReportResult={redteamReportResult}
             selectedTool={selectedTool}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            onBack={runningWithoutResult ? () => handleStepSelect(null) : undefined}
           />
         );
       case 'Model-Jailbreak':
         return (
-          <JailbreakDetailPanel 
+          <JailbreakDetailPanel
             step={selectedStep}
             stepIndex={selectedStepIndex}
             jailbreakResult={jailbreakResult}
             selectedTool={selectedTool}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            onBack={runningWithoutResult ? () => handleStepSelect(null) : undefined}
           />
         );
       case 'Agent-Scan':
         return (
-          <AgentScanDetailPanel 
+          <AgentScanDetailPanel
             step={selectedStep}
             agentScanResult={agentScanResult}
             selectedTool={selectedTool}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            onBack={runningWithoutResult ? () => handleStepSelect(null) : undefined}
           />
         );
       default:

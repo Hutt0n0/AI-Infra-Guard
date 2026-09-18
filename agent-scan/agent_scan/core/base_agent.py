@@ -152,6 +152,9 @@ class BaseAgent:
             # schedule other coroutines (e.g. parallel skill workers in
             # ScanPipeline.run_parallel_detection) while awaiting the response.
             try:
+                # Snapshot the exact messages array sent to the LLM API for trace logging
+                self._last_llm_request = [dict(m) for m in self.history]
+                self._last_llm_model = getattr(self.llm, "model", "")
                 response = await self.llm.chat_async(self.history, language=self.language)
                 logger.debug(f"LLM Response: {response}")
 
@@ -231,10 +234,46 @@ class BaseAgent:
 
         scanLogger.status_update(self.step_id, description, "", "running")
 
+        # Emit the full LLM exchange (request + response) as an audit entry so the
+        # web console can render the complete traffic to/from the scanning LLM.
+        self._emit_llm_exchange(response)
+
         if tool_invocation:
             return await self.process_tool_call(tool_invocation, description)
         else:
             return await self.handle_no_tool(description)
+
+    def _emit_llm_exchange(self, response: str) -> None:
+        """Report the full LLM API trace to the AIG console.
+
+        Emits the complete messages array sent to the model (system prompt,
+        every conversation turn, tool feedback) plus the raw response, so
+        security analysts can audit the full request/response traffic.
+        """
+        try:
+            exchange_id = uuid.uuid4().__str__()
+            scanLogger.tool_used(self.step_id, exchange_id,
+                                 f"LLM Call #{self.iter + 1}", "done",
+                                 "llm_chat", "")
+            messages = getattr(self, "_last_llm_request", None)
+            if not messages:
+                # Fallback: derive request from history (last user message)
+                request = ""
+                for msg in reversed(self.history):
+                    if msg.get("role") == "user":
+                        request = msg.get("content", "")
+                        break
+                messages = [{"role": "user", "content": request}]
+            payload = json.dumps({
+                "model": getattr(self, "_last_llm_model", ""),
+                "iteration": self.iter + 1,
+                "stage": self.name if hasattr(self, "name") else self.step_id,
+                "messages": messages,
+                "response": response,
+            }, ensure_ascii=False)
+            scanLogger.action_log(exchange_id, "llm_chat", self.step_id, payload)
+        except Exception as e:  # never break the scan loop for logging
+            logger.debug(f"emit llm exchange failed: {e}")
 
     async def process_tool_call(self, tool_call: dict, description: str):
         tool_name = tool_call["toolName"]

@@ -374,6 +374,22 @@ func (tm *TaskManager) dispatchTask(sessionId string, traceID string) error {
 				enhancedParams["agent_data"] = string(agentData)
 			}
 		}
+		// 处理target_agent_id（大模型安全体检测被测目标为 agent 时），同样转换为 YAML 文本
+		if targetAgentIdStr, exists := task.Params["target_agent_id"]; exists {
+			targetAgentId, ok := targetAgentIdStr.(string)
+			if ok && targetAgentId != "" {
+				username := task.Username
+				if username == "" {
+					username = PublicUser
+				}
+				agentData, err := readAgentConfigContent(username, targetAgentId)
+				if err != nil {
+					log.Errorf("获取被测Agent配置失败: trace_id=%s, sessionId=%s, agentID=%s, error=%v", traceID, sessionId, targetAgentId, err)
+					return fmt.Errorf("获取被测Agent配置 '%s' 失败: %v", targetAgentId, err)
+				}
+				enhancedParams["target_agent"] = string(agentData)
+			}
+		}
 	}
 
 	// 6. 构造任务分配消息

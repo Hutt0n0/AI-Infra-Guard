@@ -19,7 +19,8 @@ import {
   Minimize,
   Copy,
   MessageSquare,
-  Share2
+  Share2,
+  ArrowLeft
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
@@ -44,6 +45,7 @@ interface BaseDetailPanelProps {
   children?: React.ReactNode;
   emptyMessage?: string;
   hideFullscreenButton?: boolean;
+  onBack?: () => void;
 }
 
 const BaseDetailPanel: React.FC<BaseDetailPanelProps> = ({ 
@@ -56,7 +58,8 @@ const BaseDetailPanel: React.FC<BaseDetailPanelProps> = ({
   titleIcon,
   children,
   emptyMessage = '选择执行步骤',
-  hideFullscreenButton = false
+  hideFullscreenButton = false,
+  onBack,
 }) => {
   const { t } = useTranslation();
   const { state } = useApp();
@@ -228,6 +231,22 @@ const BaseDetailPanel: React.FC<BaseDetailPanelProps> = ({
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>{t('detailPanel.ui.shareReport')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {onBack && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={onBack}
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors cursor-pointer text-xs text-gray-600"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      {t('detailPanel.ui.backToConsole', '返回控制台')}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t('detailPanel.ui.backToConsoleTip', '返回扫描过程控制台')}</p>
                   </TooltipContent>
                 </Tooltip>
               )}

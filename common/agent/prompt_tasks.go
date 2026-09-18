@@ -65,9 +65,10 @@ func (m *ModelRedteamReport) GetName() string {
 
 func (m *ModelRedteamReport) Execute(ctx context.Context, request TaskRequest, callbacks TaskCallbacks) error {
 	type params struct {
-		Model     []ModelParams `json:"model"`
-		EvalModel ModelParams   `json:"eval_model"`
-		Datasets  struct {
+		Model       []ModelParams `json:"model"`
+		EvalModel   ModelParams   `json:"eval_model"`
+		TargetAgent string        `json:"target_agent"` // agent YAML content: evaluate an agent instead of a bare LLM
+		Datasets    struct {
 			DataFile     []string `json:"dataFile"`
 			NumPrompts   int      `json:"numPrompts"`
 			RandomSeed   int      `json:"randomSeed"`
@@ -93,6 +94,33 @@ func (m *ModelRedteamReport) Execute(ctx context.Context, request TaskRequest, c
 	var argv []string = make([]string, 0)
 	argv = append(argv, "run", "--no-project", "cli_run.py")
 	argv = append(argv, "--async_mode")
+
+	// Agent target mode: evaluate a configured AI agent (custom protocol /
+	// SSE / two-step chains) instead of a bare OpenAI-compatible LLM API.
+	// params.target_agent carries the agent YAML content, resolved from the
+	// requesting user's config store by the server before dispatch.
+	if strings.TrimSpace(param.TargetAgent) != "" {
+		argv = append(argv, "--target_type", "agent")
+		argv = append(argv, "--agent_max_concurrent", "4")
+
+		agentScanDir, err := utils.ResolveAgentScanDir()
+		if err != nil {
+			return fmt.Errorf("resolve agent-scan directory: %v", err)
+		}
+		argv = append(argv, "--agent_scan_dir", agentScanDir)
+
+		tmpFile, err := os.CreateTemp("", "agent_target_*.yaml")
+		if err != nil {
+			return fmt.Errorf("create temp agent config: %v", err)
+		}
+		defer os.Remove(tmpFile.Name())
+		if _, err := tmpFile.WriteString(param.TargetAgent); err != nil {
+			tmpFile.Close()
+			return fmt.Errorf("write temp agent config: %v", err)
+		}
+		tmpFile.Close()
+		argv = append(argv, "--agent_provider", tmpFile.Name())
+	}
 
 	for _, model := range param.Model {
 		if model.Limit == 0 {
@@ -182,6 +210,22 @@ func (m *ModelRedteamReport) Execute(ctx context.Context, request TaskRequest, c
 	argv = append(argv, "--techniques")
 	if len(param.Techniques) > 0 {
 		argv = append(argv, param.Techniques...)
+		// Agent 目标与裸 LLM API 不同：编码类方法（Zalgo/Base64 等）经预校验
+		// 探针（要求解码输出 99999）后大概率被判定无效——agent 通常无法解码
+		// 乱码文本。若用户所选方法全部被过滤，任务会直接终止。为 agent 模式
+		// 兜底追加 Raw（原文直发，不参与编码预校验），保证攻击真正打到 agent。
+		if strings.TrimSpace(param.TargetAgent) != "" {
+			hasRaw := false
+			for _, t := range param.Techniques {
+				if strings.EqualFold(strings.TrimSpace(t), "Raw") {
+					hasRaw = true
+					break
+				}
+			}
+			if !hasRaw {
+				argv = append(argv, "Raw")
+			}
+		}
 	} else {
 		argv = append(argv, "Raw")
 	}

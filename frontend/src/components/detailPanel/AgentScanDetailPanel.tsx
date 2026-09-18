@@ -56,6 +56,7 @@ interface AgentScanDetailPanelProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   sessionId?: string;
+  onBack?: () => void;
 }
 
 const CollapsibleContent = ({ text, label, icon: Icon, bgClass = "bg-gray-50" }: any) => {
@@ -96,7 +97,8 @@ const AgentScanDetailPanel: React.FC<AgentScanDetailPanelProps> = ({
   selectedTool,
   isFullscreen = false,
   onToggleFullscreen,
-  sessionId
+  sessionId,
+  onBack
 }) => {
   const { t } = useTranslation();
   const { state } = useApp();
@@ -129,6 +131,7 @@ const AgentScanDetailPanel: React.FC<AgentScanDetailPanelProps> = ({
         selectedTool={selectedTool}
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
+        onBack={onBack}
       />
     );
   }
@@ -141,6 +144,7 @@ const AgentScanDetailPanel: React.FC<AgentScanDetailPanelProps> = ({
         selectedTool={selectedTool}
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
+        onBack={onBack}
       />
     );
   }

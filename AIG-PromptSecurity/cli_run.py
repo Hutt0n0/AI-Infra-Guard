@@ -17,6 +17,7 @@
 # documentation or user interface, as detailed in the NOTICE file.
 
 import time
+import os
 from pathlib import Path
 import argparse
 
@@ -74,6 +75,16 @@ def main():
     parser.add_argument("--evaluate_model", type=str, help="Model name for a evaluate model")
     parser.add_argument("--eval_max_concurrent", type=int, default=10, help="Max concurrent")
 
+    # Agent target support: evaluate an AI agent (custom protocol / SSE /
+    # two-step chains) instead of a bare LLM API. --agent_provider points to
+    # the same YAML used by Agent-Scan; --agent_scan_dir locates the
+    # agent-scan package providing the provider SDK.
+    parser.add_argument("--target_type", type=str, default="model", choices=["model", "agent"],
+                        help="Target type: 'model' (OpenAI-compatible LLM API) or 'agent'")
+    parser.add_argument("--agent_provider", type=str, default="", help="Path to agent provider YAML (target_type=agent)")
+    parser.add_argument("--agent_scan_dir", type=str, default="", help="Path to the agent-scan project directory")
+    parser.add_argument("--agent_max_concurrent", type=int, default=4, help="Max concurrent agent dialogues")
+
     parser.add_argument("--scenarios", type=str, nargs='+', help="Scenarios to test")
     parser.add_argument("--techniques", type=str, nargs='+', help="Techniques to test")
     
@@ -115,12 +126,33 @@ def main():
 
     # 初始化模型
     models = []
-    lengths = list(map(len, (args.base_url, args.api_key, args.model, args.max_concurrent)))
-    if len(set(lengths)) != 1:
-        raise ValueError("base_url, api_key, model, max_concurrent must have same number of parameters")
-    for base_url, api_key, model_name, max_concurrent  in zip(args.base_url, args.api_key, args.model, args.max_concurrent):
-        model = create_model(model_name, base_url, api_key[0], max_concurrent)
-        models.append(model)
+    if args.target_type == "agent":
+        # Agent target: the target list is a single agent-backed model; the
+        # OpenAI-style target params are not required in this mode.
+        if not args.agent_provider:
+            raise ValueError("--agent_provider is required when --target_type=agent")
+        from cli.model_utils.agent_target import AgentTargetModel
+
+        agent_scan_dir = args.agent_scan_dir or os.environ.get("AIG_AGENT_SCAN_DIR", "")
+        if not agent_scan_dir:
+            # Default to the sibling agent-scan checkout (same layout as the repo)
+            candidate = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "agent-scan")
+            if os.path.isdir(candidate):
+                agent_scan_dir = candidate
+        if not agent_scan_dir:
+            raise ValueError("--agent_scan_dir is required when --target_type=agent (or set AIG_AGENT_SCAN_DIR)")
+        models.append(AgentTargetModel(
+            agent_provider_file=args.agent_provider,
+            agent_scan_dir=agent_scan_dir,
+            max_concurrent=args.agent_max_concurrent,
+        ))
+    else:
+        lengths = list(map(len, (args.base_url, args.api_key, args.model, args.max_concurrent)))
+        if len(set(lengths)) != 1:
+            raise ValueError("base_url, api_key, model, max_concurrent must have same number of parameters")
+        for base_url, api_key, model_name, max_concurrent  in zip(args.base_url, args.api_key, args.model, args.max_concurrent):
+            model = create_model(model_name, base_url, api_key[0], max_concurrent)
+            models.append(model)
         
     if any(param is None for param in (args.evaluate_model, args.eval_base_url, args.eval_api_key, args.eval_max_concurrent)):
         evaluate_model = models[0]

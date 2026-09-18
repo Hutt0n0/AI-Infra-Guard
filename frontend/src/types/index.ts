@@ -113,10 +113,11 @@ export interface AppState {
   clearInputTrigger: number;
 }
 
-export type AppAction = 
+export type AppAction =
   | { type: 'SET_TASKS'; payload: Task[] }
   | { type: 'ADD_TASK'; payload: Task }
   | { type: 'UPDATE_TASK'; payload: { id: string; updates: Partial<Task> } }
+  | { type: 'TERMINATE_TASK_STEPS'; payload: string }
   | { type: 'DELETE_TASK'; payload: string }
   | { type: 'SET_CURRENT_TASK'; payload: string | null }
   | { type: 'ADD_MESSAGE'; payload: { taskId: string; message: Message } }
