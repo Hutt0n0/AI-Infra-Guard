@@ -32,6 +32,7 @@ const (
 	AgentMsgTypeStatusUpdate = "statusUpdate" // 更新步骤状态
 	AgentMsgTypePlanUpdate   = "planUpdate"   // 更新任务计划
 	AgentMsgTypeError        = "error"        // 更新任务计划
+	AgentMsgTypeMessageTrace = "messageTrace" // 与受测 agent/LLM API 的消息通信 trace
 
 	// Server -> Agent 消息类型
 	ServerMsgTypeRegisterResp = "register_ack" // 注册响应
@@ -328,4 +329,39 @@ type ErrorUpdate struct {
 	SessionID string     `json:"sessionId" validate:"required"` // 会话ID - 必需
 	Timestamp int64      `json:"timestamp" validate:"required"` // 时间戳 - 必需
 	Event     ErrorEvent `json:"event"`                         // 事件数据 - 必需
+}
+
+// ==================== 消息通信 trace 相关结构 ====================
+
+// MessageTraceEvent 与受测 agent/LLM API 的一条往来消息事件
+type MessageTraceEvent struct {
+	ID        string `json:"id"`        // 消息id
+	Type      string `json:"type"`      // 消息类型，固定为"messageTrace"
+	Timestamp int64  `json:"timestamp"` // 时间戳
+	TraceId   string `json:"traceId"`   // 同一次调用请求/响应/错误共享的关联id
+	Direction string `json:"direction"` // request（发往目标）/ response（目标返回）/ error（调用失败）
+	Tool      string `json:"tool"`      // 产生消息的来源工具（如 target_dialogue）
+	PlanStepId string `json:"planStepId"` // 执行步骤id
+	Endpoint  string `json:"endpoint"`  // 目标标识（模型名 / agent label）
+	Phase     string `json:"phase"`     // 阶段标签（如 pre-verify / attack / judge）
+	AttackMethod string `json:"attackMethod,omitempty"` // 攻击方法（红队评测）
+	Vulnerability string `json:"vulnerability,omitempty"` // 漏洞类型（红队评测）
+	Turn      int    `json:"turn,omitempty"` // 多轮攻击中的轮次
+	Payload   string `json:"payload"`   // 消息内容（请求 prompt 或响应输出，或错误信息）
+	Meta      string `json:"meta,omitempty"` // 附加元数据 JSON（status_code/elapsed/transport 等）
+}
+
+// MessageTraceUpdate 消息通信 trace 更新消息（前端格式）
+type MessageTraceUpdate struct {
+	ID        string            `json:"id"`        // 消息id
+	Type      string            `json:"type"`      // 消息类型，固定为"event"
+	SessionId string            `json:"sessionId"` // 任务的id
+	Timestamp int64             `json:"timestamp"` // 时间戳
+	Event     MessageTraceEvent `json:"event"`     // 事件数据
+}
+
+// MessageTraceContent Agent发送给服务器的消息通信 trace 内容
+type MessageTraceContent struct {
+	Type    string            `json:"type"`    // 固定为"messageTrace"
+	Content MessageTraceUpdate `json:"content"` // trace 数据
 }

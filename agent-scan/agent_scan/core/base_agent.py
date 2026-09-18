@@ -319,6 +319,7 @@ class BaseAgent:
             folder=self.repo_dir,
             agent_provider=self.agent_provider,
             language=self.language,
+            step_id=self.step_id,
         )
 
         # Call tool via Dispatcher

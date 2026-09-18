@@ -51,6 +51,7 @@ const (
 	WSMsgTypeResultUpdate = "resultUpdate" // 结果更新
 	WSMsgTypeActionLog    = "actionLog"    // 日志
 	WSMsgTypeError        = "error"        // 日志
+	WSMsgTypeMessageTrace = "messageTrace" // 与受测 agent/LLM API 的消息通信 trace
 )
 
 // Agent 端事件消息（Agent -> Server，直接使用 task.go 中的结构体）
@@ -243,12 +244,12 @@ func (ac *AgentConnection) handleConnection(am *AgentManager) {
 				return
 			}
 			ac.stateMu.RUnlock()
-		case WSMsgTypeLiveStatus, WSMsgTypePlanUpdate, WSMsgTypeNewPlanStep, WSMsgTypeStatusUpdate, WSMsgTypeToolUsed, WSMsgTypeResultUpdate, WSMsgTypeActionLog, WSMsgTypeError:
+		case WSMsgTypeLiveStatus, WSMsgTypePlanUpdate, WSMsgTypeNewPlanStep, WSMsgTypeStatusUpdate, WSMsgTypeToolUsed, WSMsgTypeResultUpdate, WSMsgTypeActionLog, WSMsgTypeError, WSMsgTypeMessageTrace:
 			// 所有事件类型都统一处理
 			ac.handleAgentEvent(am, wsMsg.Content, wsMsg.Type)
 		default:
 			log.Warnf("Agent发送未知消息类型: agentId=%s, type=%s", ac.agentID, wsMsg.Type)
-			ac.sendError(fmt.Sprintf("未知的消息类型: %s。支持的类型: register, disconnect, liveStatus, planUpdate, newPlanStep, statusUpdate, toolUsed, resultUpdate, actionLog", wsMsg.Type))
+			ac.sendError(fmt.Sprintf("未知的消息类型: %s。支持的类型: register, disconnect, liveStatus, planUpdate, newPlanStep, statusUpdate, toolUsed, resultUpdate, actionLog, messageTrace", wsMsg.Type))
 		}
 	}
 }

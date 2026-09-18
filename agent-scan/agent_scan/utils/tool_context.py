@@ -19,9 +19,13 @@
 """
 工具执行上下文 - 提供工具运行所需的环境信息
 """
+import json
+import time
+import uuid
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 from agent_scan.core.agent_adapter.adapter import AIProviderClient, ProviderOptions
+from agent_scan.utils.aig_logger import scanLogger
 
 if TYPE_CHECKING:  # pragma: no cover
     from agent_scan.tools.dispatcher import ToolDispatcher
@@ -40,7 +44,8 @@ class ToolContext:
             specialized_llms: Optional[Dict[str, LLM]] = None,
             folder: Optional[str] = None,
             agent_provider: Optional[ProviderOptions] = None,
-            language: str = "zh"
+            language: str = "zh",
+            step_id: str = None
     ):
         """
         初始化工具上下文
@@ -54,6 +59,7 @@ class ToolContext:
         self.client = AIProviderClient()
         self.agent_provider: ProviderOptions = agent_provider
         self.language = language
+        self.step_id = step_id
 
     def get_llm(self, purpose: str = "default") -> LLM:
         """
@@ -82,9 +88,77 @@ class ToolContext:
         return self.history[-n:] if len(self.history) > n else self.history
 
     def call_provider(self, prompt: str):
+        """Call the target agent and emit the full request/response as message traces.
+
+        Every dialogue with the target agent flows through here, so this is the
+        single instrumentation point for the target-communication trace stream.
+        """
         if self.agent_provider is None:
             raise ValueError("Agent provider not set")
-        return self.client.call_provider(self.agent_provider, prompt)
+
+        step_id = self.step_id or ""
+        endpoint = self.agent_provider.id or ""
+        if self.agent_provider.label:
+            endpoint = f"{endpoint} ({self.agent_provider.label})"
+
+        trace_id = uuid.uuid4().hex
+        scanLogger.message_trace(
+            trace_id=trace_id,
+            direction="request",
+            tool="target_dialogue",
+            stepId=step_id,
+            endpoint=endpoint,
+            payload=prompt,
+            phase=self.agent_name,
+        )
+
+        start_time = time.time()
+        try:
+            result = self.client.call_provider(self.agent_provider, prompt)
+        except Exception as e:  # noqa: BLE001
+            scanLogger.message_trace(
+                trace_id=trace_id,
+                direction="error",
+                tool="target_dialogue",
+                stepId=step_id,
+                endpoint=endpoint,
+                payload=str(e),
+                phase=self.agent_name,
+                meta=json.dumps({"elapsed_ms": int((time.time() - start_time) * 1000)}, ensure_ascii=False),
+            )
+            raise
+
+        # Best-effort metadata: HTTP status / elapsed / transport from the response info
+        meta = json.dumps({"elapsed_ms": int((time.time() - start_time) * 1000)}, ensure_ascii=False)
+        payload = ""
+        if result.provider_response is not None:
+            pr = result.provider_response
+            meta_dict = {
+                "elapsed_ms": int((time.time() - start_time) * 1000),
+            }
+            for key in ("status_code", "transport", "is_sse"):
+                value = (pr.metadata or {}).get(key)
+                if value is not None:
+                    meta_dict[key] = value
+            if pr.token_usage:
+                meta_dict["token_usage"] = pr.token_usage
+            meta = json.dumps(meta_dict, ensure_ascii=False)
+            payload = pr.output or ""
+            if not result.success:
+                payload = pr.error or result.message or payload
+
+        direction = "response" if result.success else "error"
+        scanLogger.message_trace(
+            trace_id=trace_id,
+            direction=direction,
+            tool="target_dialogue",
+            stepId=step_id,
+            endpoint=endpoint,
+            payload=payload,
+            phase=self.agent_name,
+            meta=meta,
+        )
+        return result
 
     def call_llm(
             self,

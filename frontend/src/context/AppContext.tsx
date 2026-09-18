@@ -42,6 +42,17 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ),
       };
 
+    case 'APPEND_TRACE':
+      // Append one target-communication trace entry (messageTrace SSE events)
+      return {
+        ...state,
+        tasks: state.tasks.map(task =>
+          task.id === action.payload.taskId
+            ? { ...task, traces: [...(task.traces || []), action.payload.trace] }
+            : task
+        ),
+      };
+
     case 'TERMINATE_TASK_STEPS':
       // Close out any in-flight plan steps / subSteps so the UI stops spinning after termination
       return {
@@ -400,6 +411,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         }
       }
+
+      // Replay target-communication traces (messageTrace events, agent-scan & redteam)
+      const traces = taskData.messages
+        .filter(msg => msg.type === 'messageTrace' && msg.event)
+        .map(msg => ({
+          id: msg.event.id || msg.id || uuidv4(),
+          traceId: msg.event.traceId || '',
+          direction: msg.event.direction || 'request',
+          tool: msg.event.tool || 'target_dialogue',
+          planStepId: msg.event.planStepId || '',
+          endpoint: msg.event.endpoint || '',
+          phase: msg.event.phase || '',
+          attackMethod: msg.event.attackMethod,
+          vulnerability: msg.event.vulnerability,
+          turn: msg.event.turn,
+          payload: msg.event.payload || '',
+          meta: msg.event.meta,
+          timestamp: msg.event.timestamp || msg.timestamp || 0,
+        }));
            
       // If no plan data was returned from the API, use an empty array
       if (planSteps.length === 0) {
@@ -497,6 +527,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         plan: planSteps,
         messages: parsedMessages,
         isSubmitted: true,
+        traces,
       };
 
       dispatch({

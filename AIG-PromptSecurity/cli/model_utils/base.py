@@ -21,6 +21,8 @@ from typing import Tuple
 from deepeval.models.base_model import DeepEvalBaseLLM
 import asyncio
 
+from cli.trace_utils import emit_target_trace
+
 class BaseLLM(DeepEvalBaseLLM):
     def __init__(self, model_name: str, base_url: str, api_key: str, max_concurrent: int):
         self.model_name = model_name
@@ -28,6 +30,21 @@ class BaseLLM(DeepEvalBaseLLM):
         self.api_key = api_key
         self.max_concurrent = max_concurrent
         self.semaphore = asyncio.Semaphore(max_concurrent)
+
+    def _emit_connection_trace(self, ok: bool, output: str, error: str = "") -> None:
+        """Emit the connectivity probe (request payload is fixed) as traces."""
+        emit_target_trace(
+            direction="request",
+            endpoint=self.get_model_name(),
+            payload="only return 1",
+            meta={},
+        )
+        emit_target_trace(
+            direction="response" if ok else "error",
+            endpoint=self.get_model_name(),
+            payload=output if ok else (error or output),
+            meta={},
+        )
 
     @abstractmethod
     def load_model(self, *args, **kwargs):

@@ -59,6 +59,7 @@ class OpenaiAlikeModel(BaseLLM):
                 )
                 # 如果成功，返回成功的信息和使用的参数
                 self.default_params = current_params.copy()
+                self._emit_connection_trace(True, response.choices[0].message.content)
                 return True, response.choices[0].message.content
             except Exception as e:
                 last_error = str(e)
@@ -69,6 +70,7 @@ class OpenaiAlikeModel(BaseLLM):
                 # 否则继续循环（最后一次尝试无参数）
 
         # 所有尝试都失败
+        self._emit_connection_trace(False, "", last_error)
         return False, last_error
 
     def generate(self, prompt: str = None, messages: list = None) -> str:
