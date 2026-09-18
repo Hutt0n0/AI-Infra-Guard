@@ -1245,7 +1245,9 @@
       "secKnowledge": "Knowledge",
       "secSystem": "System",
       "brandSub": "AI RED TEAM PLATFORM",
-      "administrator": "Administrator"
+      "administrator": "Administrator",
+      "poisonDetect": "LLM API Poisoning Detection",
+      "skillMarket": "AI Security Skill Market"
     },
     "topbar": {
       "searchPlaceholder": "Search targets, CVEs, tasks…",

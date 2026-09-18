@@ -1244,7 +1244,9 @@
       "secKnowledge": "知识库",
       "secSystem": "系统",
       "brandSub": "AI RED TEAM PLATFORM",
-      "administrator": "管理员"
+      "administrator": "管理员",
+      "poisonDetect": "大模型API投毒检测",
+      "skillMarket": "AI 安全技能市场"
     },
     "topbar": {
       "searchPlaceholder": "搜索目标、CVE、任务…",

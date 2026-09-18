@@ -106,7 +106,7 @@ export default function NewScanPage() {
         <h1 className="font-head font-bold text-2xl tracking-tight text-plat-ink">新建扫描</h1>
       </div>
       <p className="text-[13px] text-plat-ink-2 mb-4">
-        五类检测能力 · 表单化配置（与 AI 助手触发等价，参数映射同一后端 API）
+        七类检测能力 · 任务型表单化配置（与 AI 助手触发等价，参数映射同一后端 API）· 平台级能力见左列底部
       </p>
 
       <div className="flex gap-3.5 items-start">

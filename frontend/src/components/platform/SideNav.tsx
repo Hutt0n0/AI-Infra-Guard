@@ -3,14 +3,14 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, ListChecks, ScanSearch, ShieldCheck, FileBarChart2,
-  BookOpen, Bot, Settings,
+  BookOpen, Bot, Settings, Radar, Store,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import SettingsDialog from '../SettingsDialog';
 
 interface NavItemDef {
   key: string;
-  /** 路由；null = 非路由入口（设置） */
+  /** 路由；null = 非路由入口（设置）；'external:' 前缀 = 外部链接 */
   to: string | null;
   icon: React.ComponentType<{ className?: string }>;
   /** 分组 */
@@ -27,13 +27,15 @@ const SECTIONS: { id: NavItemDef['section']; labelKey: string; fallback: string 
   { id: 'system', labelKey: 'platform.nav.secSystem', fallback: '系统' },
 ];
 
-/** 导航元数据表 — 设计稿侧栏顺序 */
+/** 导航元数据表 — 检测能力区覆盖 7 类：5 任务型 + 投毒检测（页内）+ 技能市场（外链） */
 const NAV_ITEMS: NavItemDef[] = [
   { key: 'dashboard', to: '/', icon: LayoutDashboard, section: 'monitor' },
   { key: 'tasks', to: '/tasks', icon: ListChecks, section: 'monitor', badge: 'runningTasks' },
   { key: 'scan', to: '/scan', icon: ScanSearch, section: 'capability' },
   { key: 'jailbreak', to: '/jailbreak', icon: ShieldCheck, section: 'capability' },
   { key: 'reports', to: '/reports', icon: FileBarChart2, section: 'capability' },
+  { key: 'poisonDetect', to: '/poison-detect', icon: Radar, section: 'capability' },
+  { key: 'skillMarket', to: 'external:https://matrix.tencent.com/skill-market', icon: Store, section: 'capability' },
   { key: 'knowledge', to: '/knowledge', icon: BookOpen, section: 'knowledge' },
   { key: 'agents', to: '/agents', icon: Bot, section: 'system' },
   { key: 'settings', to: null, icon: Settings, section: 'system' },
@@ -78,6 +80,20 @@ export default function SideNav() {
             key={item.key}
             type="button"
             onClick={() => (item.key === 'settings' ? setSettingsOpen(true) : item.onClick?.())}
+            className="w-full flex items-center gap-2.5 px-2.5 py-[9px] rounded-[10px] text-[13.5px] font-medium text-plat-ink-2 hover:bg-plat-surface-low transition-colors cursor-pointer mb-0.5"
+          >
+            {content}
+          </button>
+        );
+      }
+
+      // 外部链接（external: 前缀）— 新窗口打开
+      if (item.to.startsWith('external:')) {
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => window.open(item.to.slice('external:'.length), '_blank')}
             className="w-full flex items-center gap-2.5 px-2.5 py-[9px] rounded-[10px] text-[13.5px] font-medium text-plat-ink-2 hover:bg-plat-surface-low transition-colors cursor-pointer mb-0.5"
           >
             {content}
