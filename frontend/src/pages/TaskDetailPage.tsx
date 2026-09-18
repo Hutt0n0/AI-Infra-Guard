@@ -21,6 +21,7 @@ import { useTaskDetailState } from '../hooks/useTaskDetailState';
 import { terminateTaskRequest, deleteTaskRequest } from '../lib/taskApi';
 import type { LlmTrace } from '../components/detailPanel/ScanProgressConsole';
 import { cn } from '../lib/utils';
+import { ShellModeContext } from '../components/platform/PlatformShell';
 
 type TabKey = 'console' | 'target-comm' | 'model-comm' | 'report';
 
@@ -175,6 +176,12 @@ export default function TaskDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { t, ready } = useTranslation();
+  // 向平台壳声明：本页为满高布局（内部 Tab 各自滚动，不走外层页面滚动）
+  const setFullHeight = React.useContext(ShellModeContext);
+  React.useEffect(() => {
+    setFullHeight(true);
+    return () => setFullHeight(false);
+  }, [setFullHeight]);
   const { task, isLoading, error, refresh } = useTaskDetail(sessionId ?? null);
   const detailState = useTaskDetailState();
   const [tab, setTab] = React.useState<TabKey>('console');
@@ -365,8 +372,12 @@ export default function TaskDetailPage() {
           <>
             {/* Tab 1 控制台 */}
             {tab === 'console' && (
-              <div className="flex-1 min-h-0 flex flex-col">
-                <div className="px-6 pt-3 pb-2 shrink-0">
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                {/* 执行计划：最高 40%，超出内部滚动，不再把控制台挤出视口 */}
+                <div
+                  className="px-6 pt-3 pb-2 shrink-0 overflow-y-auto scrollbar-thin"
+                  style={{ maxHeight: '40%' }}
+                >
                   <div className="text-xs font-semibold text-plat-ink-2 mb-2">{label('platform.taskCenter.executionPlan', '执行计划')}</div>
                   <CollapsibleTaskPlan steps={task.plan} taskTitle={task.title || task.id} />
                 </div>
@@ -381,11 +392,13 @@ export default function TaskDetailPage() {
             )}
             {/* Tab 2 受测对象往来通信 */}
             {tab === 'target-comm' && (
-              <TraceStreamView traces={task.traces || []} />
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <TraceStreamView traces={task.traces || []} />
+              </div>
             )}
             {/* Tab 3 模型往来通信（扫描驱动 LLM / 体检评估模型子 Tab） */}
             {tab === 'model-comm' && (
-              <div className="flex-1 min-h-0 flex flex-col">
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {task.type === 'Model-Redteam-Report' && (
                   <div className="px-6 pt-2.5 pb-0 flex items-center gap-1 shrink-0 border-b" style={{ borderColor: 'var(--plat-grid)' }}>
                     <button

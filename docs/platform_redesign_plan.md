@@ -173,6 +173,8 @@
 
 - **2026-09-18**：SideNav 检测能力区按用户需求重构（提交 12274065）：5 类扫描（Agent/Skill/MCP/大模型安全体检/AI基础设施）各自成为独立菜单项，点击进入 /scan/{agent,skill,mcp,redteam,infra} 类型任务视图页（ScanTypePage：KPI 指标行=累计任务/平均评分/风险发现/已完成+14 天 sparkline、状态筛选 chips 带计数、任务表=类型/Agent节点/状态进度/风险/评分，点行跳报告）。「新建扫描」不再占 SideNav（Topbar 右上角 CTA 已有），表单页保留由 CTA 与各类型页「新建此类扫描」进入。已部署 main-WKR6yyiu.js。
 
+- **2026-09-18**：统一任务详情页上线（提交 2cfeab03）：新路由 /task/:sessionId，4 Tab 审计视图——控制台（执行计划+ScanProgressConsole 执行流）/ 受测对象往来通信（TraceStreamView，traceId 配对请求响应）/ 模型往来通信（ModelCommView 从 actionLog 提取 LLM JSON 按 stage 分组；体检任务含「扫描驱动模型/评估模型」子 Tab，评估模型子 Tab 为诚实空态——引擎不单独记录 eval trace，判定结果在报告 Tab）/ 报告（5 类 DetailPanel）。所有列表行点击（类型页/报告中心/通知）改跳此页；/report/:sessionId 保留为分享轻视图，详情页头部一键直达。已部署 main-Bpe2O7oJ.js。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
