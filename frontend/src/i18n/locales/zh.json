@@ -1418,6 +1418,59 @@
     },
     "agents": {
       "pageSub": "Agent 扫描配置即执行节点 — 管理被测 Agent 的连接与凭据，支持连通性测试"
+    },
+    "jailbreak": {
+      "pageSub": "大模型安全体检任务聚合 · 攻击方法对抗统计",
+      "refresh": "刷新",
+      "newEval": "发起新评测",
+      "loading": "加载评测数据…",
+      "kpiPassHint": "1 - 攻破率（全部体检任务聚合）",
+      "kpiTests": "累计测试条数",
+      "kpiTestsHint": "全部已完成体检任务的提示词总数",
+      "unitCases": "条",
+      "kpiJailbreak": "攻破次数",
+      "kpiJbHint": "提示词被成功攻破的次数",
+      "unitTimes": "次",
+      "kpiRuns": "评测任务数",
+      "kpiRunsHint": "含进行中与已完成",
+      "unitRuns": "次",
+      "byMethodTitle": "攻击方法对抗统计",
+      "colMethod": "攻击方法",
+      "colTotal": "测试数",
+      "colJailbreak": "攻破",
+      "colAsr": "攻击成功率",
+      "emptyMethods": "暂无攻击方法数据",
+      "historyTitle": "历史评测对比",
+      "colRun": "评测任务",
+      "colTarget": "目标",
+      "colDataset": "数据集",
+      "colResult": "攻破 / 总数",
+      "colPass": "通过率",
+      "viewReport": "查看报告",
+      "emptyRuns": "暂无评测任务 — 通过「发起新评测」或 AI 助手创建"
+    },
+    "reports": {
+      "pageSub": "已完成任务的评估报告汇总 · 支持按类型检索",
+      "refresh": "刷新",
+      "colTask": "任务",
+      "colType": "类型",
+      "colRisks": "风险",
+      "colScore": "评分",
+      "colStatus": "状态",
+      "viewReport": "查看报告",
+      "searchPlaceholder": "搜索任务名 / sessionId…",
+      "loading": "加载报告列表…",
+      "empty": "暂无已完成任务的报告",
+      "total": "共 {{count}} 份报告"
+    },
+    "notify": {
+      "title": "通知中心",
+      "markAllRead": "全部已读",
+      "empty": "暂无通知 — 任务状态变化时会在这里提醒",
+      "completed": "已完成",
+      "failed": "失败",
+      "started": "已开始",
+      "terminated": "已终止"
     }
   }
 }

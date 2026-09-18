@@ -7,6 +7,8 @@ import TaskCenterPage from '../../pages/TaskCenterPage';
 import NewScanPage from '../../pages/NewScanPage';
 import RuleLibraryPage from '../../pages/RuleLibraryPage';
 import AgentsPage from '../../pages/AgentsPage';
+import JailbreakPage from '../../pages/JailbreakPage';
+import ReportsPage from '../../pages/ReportsPage';
 import HelpDocumentPage from '../../pages/HelpDocumentPage';
 
 /**
@@ -22,6 +24,8 @@ export default function PlatformApp() {
           <Route index element={<DashboardPage />} />
           <Route path="tasks" element={<TaskCenterPage />} />
           <Route path="scan" element={<NewScanPage />} />
+          <Route path="jailbreak" element={<JailbreakPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="knowledge" element={<RuleLibraryPage />} />
           <Route path="agents" element={<AgentsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

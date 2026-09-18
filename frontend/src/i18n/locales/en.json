@@ -1419,6 +1419,59 @@
     },
     "agents": {
       "pageSub": "Agent scan configs are execution nodes — manage connections and credentials of tested agents, with connectivity tests"
+    },
+    "jailbreak": {
+      "pageSub": "Model red-team evaluation aggregate · attack method stats",
+      "refresh": "Refresh",
+      "newEval": "New Evaluation",
+      "loading": "Loading evaluation data…",
+      "kpiPassHint": "1 - attack success rate (all evaluations aggregated)",
+      "kpiTests": "Total Test Cases",
+      "kpiTestsHint": "All prompts across completed evaluations",
+      "unitCases": "",
+      "kpiJailbreak": "Jailbreaks",
+      "kpiJbHint": "Times prompts were successfully jailbroken",
+      "unitTimes": "",
+      "kpiRuns": "Evaluation Runs",
+      "kpiRunsHint": "Running and completed",
+      "unitRuns": "",
+      "byMethodTitle": "Attack Method Statistics",
+      "colMethod": "Attack Method",
+      "colTotal": "Tests",
+      "colJailbreak": "Jailbroken",
+      "colAsr": "ASR",
+      "emptyMethods": "No attack method data yet",
+      "historyTitle": "Evaluation History",
+      "colRun": "Evaluation",
+      "colTarget": "Target",
+      "colDataset": "Dataset",
+      "colResult": "Jailbroken / Total",
+      "colPass": "Pass Rate",
+      "viewReport": "View Report",
+      "emptyRuns": "No evaluations yet — start one via \"New Evaluation\" or the AI assistant"
+    },
+    "reports": {
+      "pageSub": "Reports of completed tasks · filterable by type",
+      "refresh": "Refresh",
+      "colTask": "Task",
+      "colType": "Type",
+      "colRisks": "Risks",
+      "colScore": "Score",
+      "colStatus": "Status",
+      "viewReport": "View Report",
+      "searchPlaceholder": "Search task / sessionId…",
+      "loading": "Loading reports…",
+      "empty": "No reports from completed tasks yet",
+      "total": "{{count}} reports"
+    },
+    "notify": {
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "empty": "No notifications yet — task status changes will appear here",
+      "completed": "completed",
+      "failed": "failed",
+      "started": "started",
+      "terminated": "terminated"
     }
   }
 }

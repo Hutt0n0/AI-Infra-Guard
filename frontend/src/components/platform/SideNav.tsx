@@ -32,9 +32,8 @@ const NAV_ITEMS: NavItemDef[] = [
   { key: 'dashboard', to: '/', icon: LayoutDashboard, section: 'monitor' },
   { key: 'tasks', to: '/tasks', icon: ListChecks, section: 'monitor', badge: 'runningTasks' },
   { key: 'scan', to: '/scan', icon: ScanSearch, section: 'capability' },
-  // 越狱评测/报告中心映射到任务中心的预筛选视图（一期不做独立页）
-  { key: 'jailbreak', to: '/tasks?type=Model-Redteam-Report', icon: ShieldCheck, section: 'capability' },
-  { key: 'reports', to: '/tasks?status=completed', icon: FileBarChart2, section: 'capability' },
+  { key: 'jailbreak', to: '/jailbreak', icon: ShieldCheck, section: 'capability' },
+  { key: 'reports', to: '/reports', icon: FileBarChart2, section: 'capability' },
   { key: 'knowledge', to: '/knowledge', icon: BookOpen, section: 'knowledge' },
   { key: 'agents', to: '/agents', icon: Bot, section: 'system' },
   { key: 'settings', to: null, icon: Settings, section: 'system' },

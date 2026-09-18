@@ -95,6 +95,23 @@
   - live 验证：dashboard summary 返回真实聚合（12 样本均分 68.7 / 6 风险 / 通过率 100% / 2 目标 / 趋势 2 天）；任务列表新字段生效（risk:0 score:100 agent:test_id）；status=done→12 条精确过滤；q+分页 total 正确；0 命中→total 0；prompt_collections DELETE 通；任务详情/knowledge 回归正常
   - 修复过程中发现的 bug：① event_data 存储形状与 SSE 不同（顶层 result vs event.result）→ parseResultUpdateRisk 双兼容；② status 过滤只在有 q 时生效 → 分支条件改 q||status
 
+## 五、阶段 10 — 二期能力页 ✅ 2026-09-18 完成
+
+- [x] 10.1 越狱评测独立页 `/jailbreak`（`pages/JailbreakPage.tsx` + `lib/jailbreakApi.ts`）
+  - 数据层：fetchJailbreakStats —— 从 Model-Redteam-Report 任务详情 resultUpdate 解析 content[0]（score/total/jailbreak/extraBody.attackMethodResults），params 提取 target/datasets/techniques；同名攻击方法聚合
+  - 页面：4 KPI（聚合通过率/累计测试/攻破次数/任务数）+ 攻击方法对抗统计表 + 历史评测对比表（点击行→/report/:sessionId）
+  - SideNav「越狱评测」从任务预筛选切换为独立路由；Topbar 面包屑新增
+- [x] 10.2 报告中心独立页 `/reports`（`pages/ReportsPage.tsx`）
+  - 数据源：GET /app/tasks?status=done&pageSize=999（阶段 9 服务端过滤）+ 类型 FilterChips + 搜索
+  - 列：任务/类型/风险/评分/状态（复用阶段 9 扩展字段）；点击行→既有 /report/:sessionId 分享报告路由（不重复实现渲染）
+  - SideNav「报告中心」同步切换；面包屑新增
+- [x] 10.3 通知中心（`components/platform/NotificationBell.tsx`）
+  - 数据源：AppContext 已有的 window taskStatusChanged CustomEvent（detail: taskId/taskTitle/oldStatus/newStatus/timestamp）——真实事件流，不伪造历史
+  - 未读红点计数 + 下拉列表（状态图标/时间/跳转：completed→报告页，其余→任务中心）+ 全部已读/清空
+  - 持久化 sessionStorage（后端无通知表，不伪装跨会话历史——已注释说明）
+- [x] 10.4 验证：tsc 0 / eslint 0 / vite build 8.7s → embed → 二进制重建 → live 重启；冒烟 /jailbreak /reports /tasks / 全 200；reports 数据端点 5 条 done 任务正常
+- 10.4（设置独立页）按原计划视优先级顺延，不在本轮
+
 ## 五点五、阶段 8.6 — 同步 dev 最新改动 + 按「后端实际接口」校准前端（2026-09-18 启动）
 
 > 用户要求：根据最新 dev 分支改动 + 后端真实功能/接口设计和开发前端 UI；后端未实现的功能可用 mock 但必须标记；**不能随意新增**（无后端支撑的能力不做）。流程 = 先测试 → 开发 → 再测试，全程记录。
@@ -147,6 +164,8 @@
   - 测试中发现的待办（后端）：prompt_collections DELETE 路由 bug、服务端分页仍硬编码 999（阶段 9 处理）
 
 - **2026-09-18**：阶段 9 完成（后端聚合端点 + 列表扩展 + 分页 + DELETE bug 修复 + 前端全量切换真数据）。提交 = 阶段 9 系列。live server 已运行新二进制（含新前端 embed）。Dashboard 不再有任何 mock 数据消费（mock/dashboard.ts 已无引用方，保留文件待阶段 10 决定去留）。
+
+- **2026-09-18**：阶段 10 完成（越狱评测页 + 报告中心 + 通知中心）。SideNav 两项从预筛选升级为独立页；Topbar 铃铛接真实任务状态事件。设计稿对应屏幕全部落地（除设置页顺延）。提交 = 阶段 10 系列；二进制已 embed 重建并重启（前端 hash main-_cWFh_Kr.js）。
 
 ## 七、风险与约束备忘
 

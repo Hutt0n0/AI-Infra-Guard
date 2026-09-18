@@ -1,14 +1,17 @@
 import * as React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Plus, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import CommandSearch from './CommandSearch';
+import NotificationBell from './NotificationBell';
 
 /** 路由 → 面包屑元数据 */
 const CRUMB_MAP: Record<string, { key: string; fallback: string; light: string }> = {
   '/': { key: 'platform.nav.dashboard', fallback: '安全总览', light: 'Security Posture' },
   '/tasks': { key: 'platform.nav.tasks', fallback: '任务中心', light: 'Task Center' },
   '/scan': { key: 'platform.nav.scan', fallback: '新建扫描', light: 'New Scan' },
+  '/jailbreak': { key: 'platform.nav.jailbreak', fallback: '越狱评测', light: 'Jailbreak Evaluation' },
+  '/reports': { key: 'platform.nav.reports', fallback: '报告中心', light: 'Reports' },
   '/knowledge': { key: 'platform.nav.knowledge', fallback: '规则库', light: 'Rule Library' },
   '/agents': { key: 'platform.nav.agents', fallback: '节点与 Agent', light: 'Agents & Nodes' },
   '/help': { key: 'navigation.help', fallback: '帮助文档', light: 'Help' },
@@ -66,15 +69,8 @@ export default function Topbar() {
         <kbd className="text-[11px] text-plat-muted">⌘K</kbd>
       </button>
 
-      {/* 通知铃铛（数据源=版本更新提示等，一期静态） */}
-      <button
-        type="button"
-        className="relative w-[34px] h-[34px] rounded-[10px] border bg-white grid place-items-center text-plat-ink-2 hover:bg-plat-surface-low transition-colors cursor-pointer"
-        style={{ borderColor: 'var(--outline)' }}
-        aria-label="notifications"
-      >
-        <Bell className="w-4 h-4" />
-      </button>
+      {/* 通知中心 — 任务状态变化事件驱动（NotificationBell） */}
+      <NotificationBell />
 
       {/* 新建扫描 */}
       <button
