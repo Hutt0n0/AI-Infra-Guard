@@ -1212,5 +1212,21 @@
     "traceResponse": "目标返回的消息",
     "traceError": "目标返回（异常）",
     "traceCall": "目标调用"
+  },
+  "platform": {
+    "severity": {
+      "critical": "严重",
+      "high": "高危",
+      "medium": "中危",
+      "low": "低危",
+      "info": "信息"
+    },
+    "taskStatus": {
+      "todo": "待执行",
+      "doing": "运行",
+      "done": "完成",
+      "error": "失败",
+      "terminated": "已终止"
+    }
   }
 }

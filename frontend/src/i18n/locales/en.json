@@ -1213,5 +1213,21 @@
     "traceResponse": "Message returned by target",
     "traceError": "Target response (error)",
     "traceCall": "Target call"
+  },
+  "platform": {
+    "severity": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "info": "Info"
+    },
+    "taskStatus": {
+      "todo": "Pending",
+      "doing": "Running",
+      "done": "Done",
+      "error": "Failed",
+      "terminated": "Terminated"
+    }
   }
 }

@@ -12,8 +12,15 @@ import EditTitleDialog from './EditTitleDialog';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
 import FloatingInputArea from './floatingInputArea/FloatingInputArea';
 import StarPrompt from './StarPrompt';
-import { shouldShowModelButton } from '../utils/taskUtils';
 import { uploadFile } from '../utils/uploadUtils';
+import {
+  uploadTaskAttachments,
+  renameTaskRequest,
+  deleteTaskRequest,
+  terminateTaskRequest,
+  openTaskSSE,
+} from '../lib/taskApi';
+import { buildTaskParams, buildTaskCreateBody, getModelIdForTask, getEvalModelIdForTask } from '../lib/taskCreate';
 import { businessPartners, showBusinessPartners, PracticeShowcase } from '@/config/privateModules';
 import { useMcpServices } from '../config/mcpServices';
 import { 
@@ -713,105 +720,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
     noClick: true,
   });
 
-  // Chunked file upload
-  const uploadFileChunked = async (file: File) => {
-    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    const fileId = uuidv4();
-    const filename = file.name;
-
-    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-      const start = chunkIndex * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
-      const chunk = file.slice(start, end);
-      
-      const formData = new FormData();
-      formData.append('fileId', fileId);
-      formData.append('filename', filename);
-      formData.append('chunkIndex', chunkIndex.toString());
-      formData.append('totalChunks', totalChunks.toString());
-      formData.append('chunk', chunk);
-      
-      const response = await fetch('/api/v1/app/tasks/uploadChunk', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Chunk ${chunkIndex + 1}/${totalChunks} upload failed`);
-      }
-      
-      const result = await response.json();
-      if (result.status !== 0) {
-        throw new Error(result.message || `Chunk ${chunkIndex + 1}/${totalChunks} upload failed`);
-      }
-    }
-
-    // Merge chunks
-    const mergeResponse = await fetch('/api/v1/app/tasks/mergeChunks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fileId,
-        filename,
-        totalChunks,
-        fileSize: file.size,
-      }),
-    });
-
-    if (!mergeResponse.ok) {
-      throw new Error('Merge chunks failed');
-    }
-
-    const mergeResult = await mergeResponse.json();
-    if (mergeResult.status !== 0) {
-      throw new Error(mergeResult.message || 'Merge chunks failed');
-    }
-
-    return mergeResult.data;
-  };
-
-  // Handle attachment upload
+  // Chunked file upload — 已收敛到 lib/taskApi.uploadTaskAttachments（>1MB 分片，否则直传）
   const processAttachments = async (files: File[]) => {
-    const attachmentUrls: string[] = [];
-    const attachmentsWithNames: { filename: string, fileUrl: string }[] = [];
-    
-    if (files.length > 0) {
-      for (const file of files) {
-        let result;
-        // If the file is larger than 1MB, use chunked upload
-        if (file.size > 1 * 1024 * 1024) {
-          result = await uploadFileChunked(file);
-        } else {
-          const formData = new FormData();
-          formData.append('file', file);
-          
-          const uploadResponse = await fetch('/api/v1/app/tasks/uploadFile', {
-            method: 'POST',
-            body: formData,
-          });
-          
-          if (uploadResponse.ok) {
-            const uploadResult = await uploadResponse.json();
-            if (uploadResult.status === 0) {
-              result = uploadResult.data;
-            } else {
-              throw new Error(uploadResult.message || t('chatArea.uploadError'));
-            }
-          } else {
-            throw new Error(t('chatArea.uploadError'));
-          }
-        }
-        
-        if (result) {
-          attachmentUrls.push(result.fileUrl);
-          attachmentsWithNames.push(result);
-        }
-      }
-    }
-    return { attachmentUrls, attachmentsWithNames };
+    return uploadTaskAttachments(files);
   };
 
   // Send message
@@ -904,81 +815,36 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
   // Send the message to the server
   const sendMessageToServer = async (taskId: string, content: string, attachments: string[], taskType: string): Promise<{ success: boolean; title?: string }> => {
     try {
-      
+
       // Send the task request
       const timestamp = Date.now();
-      // Build the params object
-      const params: any = {
-        // model_id: 'model_1752130627004_r10nyjocw',
-        model_id: taskType === 'Agent-Scan' ? undefined : getModelId(taskType, selectedModel, selectedModels),
-        eval_model_id: taskType === 'Agent-Scan' ? getModelId(taskType, selectedModel, selectedModels) : getEvalModelId(taskType, selectedEvalModel),
-      };
-      
-      // For an AI-Infra-Scan or Mcp-Scan task with HTTP Headers, add them to params
-      // Note: Skill-Scan does not allow HTTP Header configuration
-      if ((taskType === 'AI-Infra-Scan' || taskType === 'Mcp-Scan') && httpHeaders.length > 0) {
-        const headersObj: { [key: string]: string } = {};
-        httpHeaders.forEach(header => {
-          if (header.key.trim() && header.value.trim()) {
-            headersObj[header.key.trim()] = header.value.trim();
-          }
-        });
-        if (Object.keys(headersObj).length > 0) {
-          params.headers = headersObj;
-        }
-      }
-      
-      // When content has a value, set dataset to undefined
-      if (content) {
-        params.dataset = undefined;
-      } else if (selectedEvaluations.length > 0) {
-        // If an evaluation set is selected, add it to params
-        params.dataset = {
-          dataFile: selectedEvaluations.filter(evaluation => !evaluation.isCustom).map(evaluation => evaluation.name),
-        };
-        
-        // For a custom evaluation set, add promptColumn info
-        const customEvaluation = selectedEvaluations.find(evaluation => evaluation.isCustom);
-        if (customEvaluation && customEvaluation.promptColumn) {
-          params.dataset.promptColumn = customEvaluation.promptColumn;
-        }
-        
-        // Add the max evaluation total parameter
-        if (maxEvaluationCount !== -1) {
-          params.dataset.numPrompts = maxEvaluationCount;
-        }
-      }
-      
-      // For a Model-Redteam-Report task with selected attack methods, add them to params
-      if (taskType === 'Model-Redteam-Report' && selectedAttackMethods.length > 0) {
-        params.techniques = selectedAttackMethods;
-      }
-      
-      // For an Agent-Scan task, add the agent parameter
-      if (taskType === 'Agent-Scan' && selectedAgent) {
-        params.agent_id = selectedAgent;
-        // Optional detection-skill subset; empty array = run all default skills
-        if (selectedSkills.length > 0) {
-          params.skills = selectedSkills;
-        }
-      }
+      // Build the params object via the shared constructor (same chain as NewScanPage)
+      const params: any = buildTaskParams(
+        taskType,
+        {
+          selectedModel,
+          selectedModels,
+          selectedEvalModel,
+          httpHeaders,
+          selectedEvaluations,
+          maxEvaluationCount,
+          selectedAttackMethods,
+          selectedAgent,
+          selectedSkills,
+          selectedTargetAgent,
+        },
+        mcpServices,
+        content
+      );
 
-      // For a Model-Redteam-Report task with an agent target, the server
-      // resolves the agent YAML; params.model stays empty in this mode.
-      if (taskType === 'Model-Redteam-Report' && selectedTargetAgent) {
-        params.target_agent_id = selectedTargetAgent;
-      }
-
-      const requestBody = {
-        id: taskId,
+      const requestBody = buildTaskCreateBody({
         sessionId: taskId,
         taskType,
-        timestamp: timestamp,
-        content: content,
-        params: params,
-        attachments: attachments,
-        countryIsoCode: i18n.language,
-      };
+        content,
+        attachments,
+        params,
+        language: i18n.language,
+      });
 
      
       // Send the POST request asynchronously without waiting for a response
@@ -1025,155 +891,58 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
     }
   };
 
-  // Establish the SSE connection
+  // Establish the SSE connection — 连接管理已收敛到 lib/taskApi.openTaskSSE
   const establishSSEConnection = (sessionId: string, content: string, attachmentsWithNames: { filename: string, fileUrl: string }[], taskType: string) => {
     // Check whether a connection for this sessionId already exists
     if (activeSSEConnections.has(sessionId)) {
       return;
     }
-    
-    const eventSource = new EventSource(`/api/v1/app/tasks/sse/${sessionId}`);
-    
-    // Add to the active connection list
-    setActiveSSEConnections(prev => new Set(prev).add(sessionId));
-    
-    eventSource.onopen = () => {
-      // SSE connection established
+
+    const enqueue = (type: string, data: any) => {
+      addToMessageQueue(type, { sessionId, ...data });
     };
 
-    eventSource.addEventListener('connected', (event) => {
-      // Handle connected events via the message queue
-      addToMessageQueue('connected', {
-        taskType,
-        sessionId,
-        content,
-        attachmentsWithNames,
-      });
-    });
-
-    eventSource.addEventListener('planUpdate', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'planUpdate' && data.event?.tasks) {
-        // Handle planUpdate events via the message queue
-        addToMessageQueue('planUpdate', {
-          sessionId,
-          event: data.event,
-        });
-      }
-    });
-
-    eventSource.addEventListener('newPlanStep', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'newPlanStep' && data.event) {
-        // Handle newPlanStep events via the message queue
-        addToMessageQueue('newPlanStep', {
-          sessionId,
-          event: data.event,
-        });
-      }
-    });
-
-    eventSource.addEventListener('statusUpdate', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'statusUpdate' && data.event) {
-        // Handle statusUpdate events via the message queue
-        addToMessageQueue('statusUpdate', {
-          sessionId,
-          event: data.event,
-        });
-      }
-    });
-
-    eventSource.addEventListener('toolUsed', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'toolUsed' && data.event?.planStepId && Array.isArray(data.event.tools)) {
-        // Handle toolUsed events via the message queue
-        addToMessageQueue('toolUsed', {
-          sessionId,
-          event: data.event,
-        });
-      }
-    });
-
-    eventSource.addEventListener('resultUpdate', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'resultUpdate' && data.event?.result) {
-        // Handle resultUpdate events via the message queue
-        addToMessageQueue('resultUpdate', {
-          sessionId,
-          event: data.event,
-        });
-        eventSource.close();
-        // Remove from the active connection list
+    const close = openTaskSSE(sessionId, {
+      onEvent: (type, data) => {
+        switch (type) {
+          case 'connected':
+            enqueue(type, { taskType, sessionId, content, attachmentsWithNames });
+            break;
+          case 'planUpdate':
+          case 'newPlanStep':
+          case 'statusUpdate':
+          case 'toolUsed':
+          case 'resultUpdate':
+          case 'actionLog':
+          case 'messageTrace':
+          case 'task_progress':
+            enqueue(type, { event: data.event });
+            break;
+          case 'error':
+            enqueue(type, { event: data.event });
+            break;
+        }
+        // resultUpdate 到达后关闭连接（与原实现一致）
+        if (type === 'resultUpdate') {
+          close();
+          setActiveSSEConnections(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(sessionId);
+            return newSet;
+          });
+        }
+      },
+      onError: () => {
         setActiveSSEConnections(prev => {
           const newSet = new Set(prev);
           newSet.delete(sessionId);
           return newSet;
         });
-      }
+      },
     });
 
-    eventSource.addEventListener('actionLog', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'actionLog' && data.event?.planStepId) {
-        // Handle actionLog events via the message queue
-        addToMessageQueue('actionLog', {
-          sessionId,
-          event: data.event,
-        });
-      }
-    });
-
-    eventSource.addEventListener('messageTrace', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'messageTrace' && data.event) {
-        // Handle target-communication trace events via the message queue
-        addToMessageQueue('messageTrace', {
-          sessionId,
-          event: data.event,
-        });
-      }
-    });
-
-    eventSource.addEventListener('error', (event) => {
-      try {
-        const data = JSON.parse((event as any).data);
-        if (data.type === 'error' && data.event) {
-          // Handle error events via the message queue
-          addToMessageQueue('error', {
-            sessionId,
-            event: data.event,
-          });
-        }
-      } catch (error) {
-      }
-    });
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // Handle different types of SSE messages
-        if (data.type === 'connected') {
-        } else if (data.type === 'task_progress') {
-          // Handle task_progress events via the message queue
-          addToMessageQueue('task_progress', {
-            sessionId,
-            event: data.event,
-          });
-        }
-      } catch (error) {
-      }
-    };
-    
-    eventSource.onerror = (error) => {
-      eventSource.close();
-      // Remove from the active connection list
-      setActiveSSEConnections(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(sessionId);
-        return newSet;
-      });
-    };
+    // Add to the active connection list
+    setActiveSSEConnections(prev => new Set(prev).add(sessionId));
   };
   // Handle task failure
   const handleTaskFailure = (taskId: string, requestBody?: any) => {
@@ -1215,16 +984,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
     setRenameLoading(true);
     setRenameError(undefined);
     try {
-      const response = await fetch(`/api/v1/app/tasks/${currentTask?.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-        }),
-      });
-      const result = await response.json();
+      const result = await renameTaskRequest(currentTask?.id, title.trim());
       if (result.status === 0) {
         actions.updateTaskTitle(currentTask?.id, title.trim());
         setIsRenaming(false);
@@ -1245,13 +1005,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
     setDeleteLoading(true);
     setDeleteError(undefined);
     try {
-      const response = await fetch(`/api/v1/app/tasks/${currentTask?.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      const result = await response.json();
+      const result = await deleteTaskRequest(currentTask?.id);
       if (result.status === 0) {
         // After successful deletion, clear the current task
         actions.deleteTask(currentTask?.id);
@@ -1292,13 +1046,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
     setTerminateLoading(true);
     setTerminateError(undefined);
     try {
-      const response = await fetch(`/api/v1/app/tasks/${currentTask?.id}/terminate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      const result = await response.json();
+      const result = await terminateTaskRequest(currentTask?.id);
       if (result.status === 0) {
         const statusUpdatePayload = buildTerminateStatusUpdatePayload(currentTask.id);
         window.dispatchEvent(new CustomEvent('taskStatusUpdate', { detail: statusUpdatePayload }));
@@ -1451,44 +1199,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
     setCurrentTaskType(undefined);
   };
 
-  // Get model ID
-  const getModelId = (taskType: string, selectedModel?: ModelItem, selectedModels?: ModelItem[]) => {
-    // Look up the matching MCP service config based on the task type
-    const mcpService = mcpServices.find(service => service.id === taskType);
-    
-    // If the service config's model is 'no', return undefined
-    if (mcpService && mcpService.model === 'no') {
-      return undefined;
-    }
-    
-    // If the service config's model is 'multi', return an array of model_id
-    if (mcpService && mcpService.model === 'multi') {
-      if (selectedModels && selectedModels.length > 0) {
-        return selectedModels.map(model => model.model_id);
-      }
-      return undefined;
-    }
-    
-    // Otherwise decide based on shouldShowModelButton and selectedModel (single-select mode)
-    if (shouldShowModelButton(taskType) && selectedModel) {
-      return selectedModel.model_id;
-    }
-    
-    return undefined;
-  };
-
-  // Get evalModel ID
-  const getEvalModelId = (taskType: string, selectedEvalModel?: ModelItem) => {
-    // Look up the matching MCP service config based on the task type
-    const mcpService = mcpServices.find(service => service.id === taskType);
-    
-    // If the service config's evalModel is 'yes' and an evalModel is selected, return its ID
-    if (mcpService && (mcpService as any).evalModel === 'yes' && selectedEvalModel) {
-      return selectedEvalModel.model_id;
-    }
-    
-    return undefined;
-  };
+  // Get model ID / evalModel ID — 已收敛到 lib/taskCreate.getModelIdForTask / getEvalModelIdForTask
 
   // Handle HTTP Headers changes
   const handleHttpHeadersChange = (headers: { key: string; value: string }[]) => {

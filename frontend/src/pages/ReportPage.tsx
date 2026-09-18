@@ -8,6 +8,7 @@ import RedteamReportDetailPanel from '../components/detailPanel/RedteamReportDet
 import JailbreakDetailPanel from '../components/detailPanel/JailbreakDetailPanel';
 import AgentScanDetailPanel from '../components/detailPanel/AgentScanDetailPanel';
 import { ExecutionStep, MCPScanResult, InfraScanResult, RedteamReportResult, JailbreakResult, AgentScanResult } from '../types';
+import { fetchTaskDetailRaw, assembleTaskFromDetail } from '../lib/taskApi';
 
 // Status mapping function
 function mapStatusToStepStatus(status: string): 'todo' | 'doing' | 'done' {
@@ -55,165 +56,67 @@ const ReportPageContent: React.FC = () => {
   const [agentScanResult, setAgentScanResult] = useState<AgentScanResult | undefined>(undefined);
 
   // Load task data
+  // Load task data
   useEffect(() => {
     if (sessionId) {
       const loadTask = async () => {
         try {
           dispatch({ type: 'SET_LOADING', payload: true });
-          const response = await fetch(`/api/v1/app/tasks/${sessionId}`);
-          const responseData = await response.json();
-          
-          if (responseData.status !== 0) {
-            throw new Error(responseData.message || '获取任务详情失败');
-          }
-          
-          const taskData = responseData.data;
+          const raw = await fetchTaskDetailRaw(sessionId);
 
-          // Parse messages and assemble plan, result and messages
-          let planSteps = [];
-          const stepIdMap = {};
-          const stepTitleMap = {};
-          let result = null;
-          const parsedMessages = [];
-          let planUpdate = null;
+          // Shared assembly (same code path as AppContext.loadTask)
+          const assembled = assembleTaskFromDetail(raw);
+          const { planSteps, result, statusMessages, traces } = assembled;
 
-          // 1. Find planUpdate
-          for (const msg of taskData.messages) {
-            if (msg.type === 'planUpdate' && msg.event?.tasks) {
-              planUpdate = msg;
-            }
-            if (msg.type === 'newPlanStep') {
-              stepTitleMap[msg.event.title] = msg.event.stepId;
-            }
-          }
-
-          // 2. Assemble the main steps
-          // Prefer using the stepId carried by the planUpdate task as the main step id
-          // to keep it consistent with subsequent planStepId values; if no stepId is
-          // present, fall back to a title lookup, and finally fall back to the index.
-          if (planUpdate) {
-            planSteps = planUpdate.event.tasks.map((task: any, idx: number) => {
-              const step = {
-                id: task.stepId || stepTitleMap[task.title] || `step-${idx}`,
-                title: task.title,
-                status: mapStatusToStepStatus(task.status),
-                progress: task.progress || 0,
-                startTime: task.startedAt ? new Date(task.startedAt) : undefined,
-                endTime: task.completedAt ? new Date(task.completedAt) : undefined,
-                details: task.details || '',
-                subSteps: [],
-                redteamReportResult: task.redteamReportResult,
-                jailbreakResult: task.jailbreakResult,
-                infraScanResult: task.infraScanResult,
-                agentScanResult: task.agentScanResult,
-              };
-              stepIdMap[step.id] = step;
-              return step;
+          const parsedMessages: any[] = [];
+          // 1. User message
+          parsedMessages.push({
+            type: 'user',
+            timestamp: raw.createdAt,
+            content: raw.content,
+            attachments: raw.attachments || [],
+          });
+          // 2. Task confirmation message
+          parsedMessages.push({
+            type: 'task_confirmation',
+            timestamp: raw.createdAt,
+            executionPlan: planSteps,
+            content: '',
+          });
+          // 3. Timeline message
+          parsedMessages.push({
+            type: 'task_execution',
+            timestamp: raw.createdAt,
+            content: '',
+          });
+          // 4. Result message (done only)
+          if (raw.status === 'done' && result) {
+            parsedMessages.push({
+              type: 'result',
+              timestamp: result.timestamp,
+              result: result.result,
             });
           }
-          
-          // 3. Iterate over messages and categorize them into subSteps of the main step
-          for (const msg of taskData.messages) {
-            // toolUsed
-            if (msg.type === 'toolUsed' && msg.event?.planStepId && Array.isArray(msg.event.tools)) {
-              const step = stepIdMap[msg.event.planStepId];
-              if (step) {
-                step.subSteps.forEach(subStep => {
-                  if (subStep.id === msg.event.statusId) {
-                    // Save the existing toolUsed data in order to preserve actionLog
-                    const existingToolUsed = subStep.toolUsed || [];
-                    const existingToolMap = {};
-                    existingToolUsed.forEach(tool => {
-                      existingToolMap[tool.toolId] = tool;
-                    });
-                    
-                    subStep.toolUsed = msg.event.tools.map((tool) => {
-                      const toolId = tool.toolId || tool.brief || Math.random().toString();
-                      const existingTool = existingToolMap[toolId];
-                      
-                      return {
-                        id: toolId,
-                        brief: tool.brief,
-                        status: mapStatusToStepStatus(tool.status),
-                        message: tool.message,
-                        result: tool.result,
-                        timestamp: msg.event.timestamp ? new Date(msg.event.timestamp * 1000) : undefined,
-                        tool: tool.tool,
-                        toolId: tool.toolId,
-                        actionLog: existingTool ? existingTool.actionLog || '' : '',
-                      };
-                    });
-                  }
-                });
-              }
-            }
-            // statusUpdate
-            if (msg.type === 'statusUpdate' && msg.event?.planStepId) {
-              const step = stepIdMap[msg.event.planStepId];
-              if (step) {
-                const subStepId = msg.event.id || Math.random().toString();
-                const existingSubStepIndex = step.subSteps.findIndex(subStep => subStep.id === subStepId);
-                
-                const newSubStep = {
-                  id: subStepId,
-                  brief: msg.event.brief,
-                  description: msg.event.description || '',
-                  status: mapStatusToStepStatus(msg.event.agentStaus),
-                  message: {},
-                  timestamp: msg.event.timestamp ? new Date(msg.event.timestamp * 1000) : undefined,
-                  toolUsed: [],
-                };
-                
-                if (existingSubStepIndex !== -1) {
-                  // Preserve the existing toolUsed data; use deep copy to avoid reference issues
-                  const existingSubStep = step.subSteps[existingSubStepIndex];
-                  newSubStep.toolUsed = [...(existingSubStep.toolUsed || [])];
-                  step.subSteps[existingSubStepIndex] = newSubStep;
-                } else {
-                  step.subSteps.push(newSubStep);
-                }
-              }
-            }
-            // actionLog
-            if (msg.type === 'actionLog' && msg.event?.planStepId && msg.event?.statusId) {
-              const step = stepIdMap[msg.event.planStepId];
-              if (step) {
-                step.subSteps.forEach(subStep => {
-                  if (subStep.id === msg.event.statusId) {
-                    subStep.toolUsed.forEach(tool => {
-                      if (tool.toolId === msg.event.toolId) {
-                        tool.actionLog = msg.event.actionLog;
-                      }
-                    });
-                  }
-                });
-              }
-            }
-            // resultUpdate
-            if (msg.type === 'resultUpdate') {
-              result = msg.event?.result || msg;
-            } else {
-              parsedMessages.push(msg);
-            }
-          }
+          // 5. Non-plan-step status messages
+          parsedMessages.push(...statusMessages);
 
           const task = {
-            id: taskData.sessionId,
-            title: taskData.title,
-            type: getTaskTypeFromTaskType(taskData.taskType),
-            status: taskData.status,
-            createdAt: taskData.createdAt,
-            updatedAt: taskData.updatedAt,
+            id: raw.sessionId,
+            title: raw.title,
+            type: getTaskTypeFromTaskType(raw.taskType),
+            status: raw.status,
+            createdAt: raw.createdAt,
+            updatedAt: raw.updatedAt,
             plan: planSteps,
-            result: result,
+            result: result?.result ?? null,
+            traces,
             messages: parsedMessages,
-            attachments: taskData.attachments || [],
+            attachments: raw.attachments || [],
             isSubmitted: true,
           };
-          console.log('ReportPage: 组装的任务数据:', task);
           // Set the task data directly without updating global state
           setTaskData(task);
-          
+
         } catch (error) {
           console.error('ReportPage: 加载任务失败:', error);
           dispatch({ type: 'SET_ERROR', payload: '加载任务失败' });

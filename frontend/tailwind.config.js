@@ -28,7 +28,7 @@ module.exports = {
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
 				primary: {
-					DEFAULT: '#2B5D3A',
+					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))',
 				},
 				secondary: {
@@ -62,12 +62,62 @@ module.exports = {
 					green: '#00e676',
 					bg: '#f8fafc'
 				},
+				// A.I.G Pro 平台 token（旧聊天 UI 不使用，仅供 platform/ 组件族）
+				plat: {
+					brand: 'var(--brand)',
+					'brand-deep': 'var(--brand-deep)',
+					'brand-fixed': 'var(--brand-fixed)',
+					surface: 'var(--surface)',
+					'surface-low': 'var(--surface-low)',
+					'surface-mid': 'var(--surface-mid)',
+					ink: 'var(--ink)',
+					'ink-2': 'var(--ink-2)',
+					muted: 'var(--plat-muted)',
+					outline: 'var(--outline)',
+					'outline-strong': 'var(--outline-strong)',
+				},
+				series: {
+					1: 'var(--series-1)',
+					2: 'var(--series-2)',
+					3: 'var(--series-3)',
+					4: 'var(--series-4)',
+					5: 'var(--series-5)',
+				},
+				sev: {
+					1: 'var(--sev-1)',
+					2: 'var(--sev-2)',
+					3: 'var(--sev-3)',
+					4: 'var(--sev-4)',
+					5: 'var(--sev-5)',
+				},
+				met: {
+					1: 'var(--met-1)',
+					2: 'var(--met-2)',
+					3: 'var(--met-3)',
+					4: 'var(--met-4)',
+					5: 'var(--met-5)',
+				},
+				st: {
+					good: 'var(--st-good)', 'good-t': 'var(--st-good-t)', 'good-bg': 'var(--st-good-bg)',
+					warn: 'var(--st-warn)', 'warn-t': 'var(--st-warn-t)', 'warn-bg': 'var(--st-warn-bg)',
+					ser: 'var(--st-ser)', 'ser-t': 'var(--st-ser-t)', 'ser-bg': 'var(--st-ser-bg)',
+					crit: 'var(--st-crit)', 'crit-t': 'var(--st-crit-t)', 'crit-bg': 'var(--st-crit-bg)',
+					info: 'var(--st-info)', 'info-t': 'var(--st-info-t)', 'info-bg': 'var(--st-info-bg)',
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)',
 				'eight': '8px',
+				'plat': 'var(--plat-radius)',
+			},
+			boxShadow: {
+				'plat-card': 'var(--shadow-card)',
+			},
+			fontFamily: {
+				head: 'var(--font-head)',
+				body: 'var(--font-body)',
 			},
 			keyframes: {
 				'accordion-down': {

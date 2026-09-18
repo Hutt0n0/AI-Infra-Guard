@@ -19,6 +19,7 @@ import WelcomeAnimation from './WelcomeAnimation';
 import { env } from '../config/env';
 import { isDocSiteMode, extraRoutes } from '@/config/privateModules';
 import { useVersionCheck } from '../hooks/useVersionCheck';
+import DevKitPage from './platform/DevKitPage';
 
 const AppContent: React.FC = () => {
   const { state } = useApp();
@@ -421,6 +422,8 @@ const App: React.FC = () => {
     <Routes>
       <Route path="/report/:sessionId" element={<ReportPage />} />
       <Route path="/poison-detect" element={<LLMProxyDetectPage />} />
+      {/* 临时组件预览页（阶段 7 删除） */}
+      <Route path="/dev-kit" element={<DevKitPage />} />
       <Route
         path="/*"
         element={
