@@ -332,6 +332,7 @@
       "riskReport": "View Report",
       "agentScan": "View Security Report"
     },
+    "openConsole": "Execution Console",
     "error": "Error",
     "unknownError": "Unknown Error",
     "serverError": "Server returned an error, please try again later",
