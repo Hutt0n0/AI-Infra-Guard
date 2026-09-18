@@ -32,16 +32,42 @@ services/**/*.pyc
 deploy/
 common/utils/chromium/screenshot.png
 
-# Local binaries and agent working files (native deployment)
-bin/
-.claude/
+###############################################################################
+# Sensitive / credential files — NEVER commit
+###############################################################################
 
-# Local agent configs may contain real credentials
+# Agent runtime configs: data/agents/<username>/<name>.yaml embeds real cookies
+# and tokens of the platforms under test (e.g. JD sdtoken). Only keep the
+# directory placeholder.
 data/agents/*/
 !data/agents/.gitkeep
 
-# Python build artifacts
+# Local databases, uploads and runtime logs (may contain scan payloads,
+# evaluation reports and agent responses with sensitive content)
+db/
+uploads/
+logs/
+AIG-PromptSecurity/logs/
+agent-scan/logs/
+
+# Editor/agent local state
+.claude/
+
+###############################################################################
+# Build artifacts & local binaries
+###############################################################################
+
+# Go binaries built for native deployment (bin/agent, bin/ai-infra-guard)
+bin/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/node_modules/
+
+# Python build & lock artifacts
 *.egg-info/
 AIG-PromptSecurity/uv.lock
 agent-scan/uv.lock
-node_modules/
+__pycache__/
+*.pyc
