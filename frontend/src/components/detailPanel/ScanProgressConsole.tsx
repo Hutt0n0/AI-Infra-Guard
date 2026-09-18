@@ -8,6 +8,7 @@ import {
   Brain,
   CheckCircle,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleDot,
   Loader2,
@@ -90,12 +91,16 @@ interface ScanProgressConsoleProps {
   task: Task;
   stageFilter?: string | null;
   onStageFilterChange?: (stageId: string | null) => void;
+  // Shown as a "Back" button for ended tasks so the user can return to the
+  // report view; running tasks default to the console so no back is needed.
+  onBack?: () => void;
 }
 
 const ScanProgressConsole: React.FC<ScanProgressConsoleProps> = ({
   task,
   stageFilter,
   onStageFilterChange,
+  onBack,
 }) => {
   const { t, i18n } = useTranslation();
   const lang = i18n.language || 'zh';
@@ -190,6 +195,15 @@ const ScanProgressConsole: React.FC<ScanProgressConsoleProps> = ({
     <div className="w-full h-full bg-white flex flex-col min-w-[320px] relative">
       {/* View tabs: execution stream / target-communication traces */}
       <div className="px-3 pt-2 border-b border-gray-200 flex items-center gap-1 flex-shrink-0">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 px-2 py-1.5 mr-1 text-xs text-gray-500 hover:text-gray-900 rounded-md hover:bg-gray-100 transition-colors flex-shrink-0"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            {t('scanConsole.back', '返回')}
+          </button>
+        )}
         <button
           onClick={() => setViewMode('stream')}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${

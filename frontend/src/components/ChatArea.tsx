@@ -33,7 +33,8 @@ import {
   Trash2,
   Pause,
   SearchCode,
-  Sparkles
+  Sparkles,
+  Terminal
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -94,6 +95,9 @@ interface ChatAreaProps {
   onStepSelect: (step: ExecutionStep | null) => void;
   onMcpResultSelect: (result: MCPScanResult | InfraScanResult | RedteamReportResult | JailbreakResult | AgentScanResult) => void;
   onToolSelect?: (step: ExecutionStep, subStepIndex: number, toolIndex: number) => void;
+  // Open the execution console (stream + target traces); available in any
+  // task state so ended tasks keep their console reachable
+  onOpenConsole?: () => void;
   welcomeAnimationCompleted?: boolean;
 }
 
@@ -132,7 +136,7 @@ const resolveWorkerId = (sessionId: string, planStepId: string): string | undefi
   return undefined;
 };
 
-const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpResultSelect, onToolSelect, welcomeAnimationCompleted }) => {
+const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpResultSelect, onToolSelect, onOpenConsole, welcomeAnimationCompleted }) => {
   const { state, actions, dispatch } = useApp();
   const { t, i18n } = useTranslation();
   const mcpServices = useMcpServices();
@@ -1629,6 +1633,21 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
               </Badge>
             </div>
             <div className="flex space-x-2 ml-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size='sm'
+                    variant='ghost'
+                    className='p-2 h-8 w-8 border rounded-[10px] hover:bg-gray-100 hover:border-gray-300'
+                    onClick={() => onOpenConsole?.()}
+                  >
+                    <Terminal className='w-4 h-4 text-gray-600' />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('chatArea.openConsole')}</p>
+                </TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

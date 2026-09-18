@@ -42,6 +42,10 @@ const AppContent: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   // Scan execution stream stage filter (persisted while switching views)
   const [consoleStageFilter, setConsoleStageFilter] = useState<string | null>(null);
+  // Execution console explicitly opened by the user (available in any task
+  // state, including completed/terminated tasks — console access must never
+  // be lost just because the task has ended)
+  const [consoleOpen, setConsoleOpen] = useState<boolean>(false);
   const [showWelcome, setShowWelcome] = useState<boolean>(env.VITE_ENABLE_WELCOME_ANIMATION);
   const [welcomeAnimationCompleted, setWelcomeAnimationCompleted] = useState<boolean>(!env.VITE_ENABLE_WELCOME_ANIMATION);
 
@@ -56,9 +60,22 @@ const AppContent: React.FC = () => {
     setAgentScanResult(undefined); // Clear agentScanResult
   };
 
+  // Open the execution console for the current task (any status)
+  const handleOpenConsole = () => {
+    setSelectedStep(null);
+    setSelectedTool(null);
+    setMcpResult(undefined);
+    setInfraScanResult(undefined);
+    setRedteamReportResult(undefined);
+    setJailbreakResult(undefined);
+    setAgentScanResult(undefined);
+    setConsoleOpen(true);
+  };
+
   const handleToolSelect = (step: ExecutionStep, subStepIndex: number, toolIndex: number) => {
     setSelectedTool({ step, subStepIndex, toolIndex });
     setSelectedStep(step); // Also select the corresponding step
+    setConsoleOpen(false); // Leave the console when a concrete step is opened
     setMcpResult(undefined); // Clear mcpResult
     setInfraScanResult(undefined); // Clear infraScanResult
     setRedteamReportResult(undefined); // Clear redteamReportResult
@@ -69,6 +86,7 @@ const AppContent: React.FC = () => {
   const handleMcpResultSelect = (result: MCPScanResult | InfraScanResult | RedteamReportResult | JailbreakResult | AgentScanResult) => {
     // Determine the result type based on the current task type
     const currentTask = state.tasks.find(task => task.id === state.currentTaskId);
+    setConsoleOpen(false); // Leave the console when the report is opened
     
     if (currentTask?.type === 'AI-Infra-Scan') {
       setInfraScanResult(result as InfraScanResult);
@@ -142,6 +160,7 @@ const AppContent: React.FC = () => {
     setRedteamReportResult(undefined);
     setJailbreakResult(undefined);
     setAgentScanResult(undefined);
+    setConsoleOpen(false);
     // Do not reset the fullscreen state so the user can keep it
   }, [state.currentTaskId]);
 
@@ -258,22 +277,30 @@ const AppContent: React.FC = () => {
   const renderDetailPanel = () => {
     if (!currentTask) return null;
 
-    // Whether the task is still running without a final report (console-visible state)
-    const runningWithoutResult = currentTask.status === 'running' &&
-      !currentTask.messages.some(msg => msg.type === 'result');
-
-    // While a task is running and no step/report is selected, show the live progress console
-    // so users can watch pipeline stages, LLM decisions and tool audit in real time.
     const hasResultMessage = currentTask.messages.some(msg => msg.type === 'result');
-    if (!selectedStep && !hasResultMessage && currentTask.status === 'running') {
+
+    // Console visibility: while a task runs with no step/report selected the
+    // console is the default view; for ended tasks (completed/terminated/error)
+    // the user can still open it explicitly via the task-header button —
+    // the console (incl. target-communication traces) must remain reachable
+    // at any time, not only while the task is running.
+    const consoleVisible =
+      (consoleOpen && !selectedStep) ||
+      (!selectedStep && !hasResultMessage && currentTask.status === 'running');
+    if (consoleVisible) {
       return (
         <ScanProgressConsole
           task={currentTask}
           stageFilter={consoleStageFilter}
           onStageFilterChange={setConsoleStageFilter}
+          onBack={hasResultMessage ? () => setConsoleOpen(false) : undefined}
         />
       );
     }
+
+    // Whether the task is still running without a final report (console-visible state)
+    const runningWithoutResult = currentTask.status === 'running' &&
+      !hasResultMessage;
 
     // Choose a different DetailPanel component based on the task type
     switch (currentTask.type) {
@@ -369,11 +396,12 @@ const AppContent: React.FC = () => {
               style={!isFullscreen ? { width: `${chatAreaWidth}%` } : {}}
               data-fullscreen={isFullscreen}
             >
-              <ChatArea 
+              <ChatArea
                 selectedStep={selectedStep}
                 onStepSelect={handleStepSelect}
                 onMcpResultSelect={handleMcpResultSelect}
                 onToolSelect={handleToolSelect}
+                onOpenConsole={handleOpenConsole}
                 welcomeAnimationCompleted={welcomeAnimationCompleted}
               />
             </div>
