@@ -179,6 +179,8 @@
 
 - **2026-09-18**：新建扫描三问题修复（提交 efe3f66a）：①Agent扫描表单补「扫描类型」技能子集选择（10 项 chip + 全部按钮，空选=全量，走既有 params.skills → --skills 链路）；②发起扫描后立即跳 /task/:sessionId 统一详情页；③详情页"未正常渲染"根因=静态服务无 Cache-Control，浏览器启发式缓存旧 index.html 引用已清理的旧 hash bundle → 修复：index.html no-cache、hash 资源 immutable 一年缓存、其余 no-cache。Playwright zh-CN 实测：技能 chips 可交互、详情页 4 Tab 全渲染 0 JS 错误、缓存头 live 生效。
 
+- **2026-09-18**：用户复报两问题，根因定位修复（提交 1c291e18）：①"e.messages is not iterable"= Go GetTaskDetail 的 messageList 为 nil slice 序列化成 JSON null，刚创建无事件的任务必触发 → 后端 make(...,0) + 前端 3 处 for..of 兜底 ?? []；②"发起扫描没跳详情"= 跳转逻辑本就在 status===0 分支内，但首次提交的保存模板 window.prompt 模态弹窗先于 navigate 阻塞了跳转观感，且失败路径（agent 未连 SSE 超时）只有裸错误 toast → navigate 提前、模板询问移到跳转后、失败 toast 附 agent 连接指引。Playwright 复测：不存在任务→错误态不崩溃，真实任务 4 Tab 正常，iterable 错误消除。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
