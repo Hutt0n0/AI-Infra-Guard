@@ -1504,8 +1504,8 @@ func (tm *TaskManager) GetTaskDetail(sessionId string, username string, traceID 
 		}
 	}
 
-	// 处理消息列表
-	var messageList []map[string]interface{}
+	// 处理消息列表（make 保证空消息序列化为 [] 而非 null——前端 for..of 迭代依赖）
+	messageList := make([]map[string]interface{}, 0)
 	for _, msg := range messages {
 		// 解析事件数据
 		var eventData map[string]interface{}

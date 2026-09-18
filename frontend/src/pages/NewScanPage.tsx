@@ -70,7 +70,9 @@ export default function NewScanPage() {
           sessionId
         );
         toast.success('扫描已发起');
-        // 询问是否保存模板（首次成功提交后显示快捷保存）
+        // 立即跳转到新任务的统一详情页（控制台/通信/模型/报告）——跳转优先，模板询问延后
+        navigate(`/task/${sessionId}`);
+        // 询问是否保存模板（首次成功提交后；跳转后弹窗，不阻塞跳转）
         if (lastSubmit === null) {
           const name = window.prompt('保存为扫描模板？（输入模板名，取消则跳过）');
           if (name && name.trim()) {
@@ -89,10 +91,11 @@ export default function NewScanPage() {
             toast.success('模板已保存');
           }
         }
-        // 立即跳转到新任务的统一详情页（控制台/通信/模型/报告）
-        navigate(`/task/${sessionId}`);
       } else {
-        toast.error(result.message || '创建任务失败');
+        toast.error(result.message || '创建任务失败', {
+          description: '若为 Agent 扫描，请确认「节点与 Agent」页的 agent 已连接（AIG_SERVER=127.0.0.1:8088 ./bin/agent）',
+          duration: 8000,
+        });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '发起扫描失败');

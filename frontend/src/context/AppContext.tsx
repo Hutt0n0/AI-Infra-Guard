@@ -255,7 +255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const parsedMessages: any[] = [];
       let errorMessage: any = null;
       // Find error message from raw messages
-      for (const msg of taskData.messages) {
+      for (const msg of (taskData.messages ?? [])) {
         if (msg.type === 'error') {
           errorMessage = {
             id: uuidv4(),
