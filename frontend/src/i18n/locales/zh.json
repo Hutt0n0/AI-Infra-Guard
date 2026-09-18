@@ -1353,6 +1353,9 @@
       "syncStarted": "规则同步已启动",
       "syncFailed": "同步失败",
       "newRule": "新建规则"
+    },
+    "agents": {
+      "pageSub": "Agent 扫描配置即执行节点 — 管理被测 Agent 的连接与凭据，支持连通性测试"
     }
   }
 }

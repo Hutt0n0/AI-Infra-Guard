@@ -1354,6 +1354,9 @@
       "syncStarted": "Rule sync started",
       "syncFailed": "Sync failed",
       "newRule": "New Rule"
+    },
+    "agents": {
+      "pageSub": "Agent scan configs are execution nodes — manage connections and credentials of tested agents, with connectivity tests"
     }
   }
 }

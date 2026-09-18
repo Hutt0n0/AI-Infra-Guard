@@ -174,7 +174,6 @@ export default function SideNav() {
 /** 版本号 — 静态读取构建信息，避免引 useVersionCheck 的网络依赖 */
 function env(): string {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const version = (window as any).__AIG_VERSION__ || 'v4.6.2';
     return version;
   } catch {
