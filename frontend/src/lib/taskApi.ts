@@ -97,7 +97,8 @@ export async function fetchTaskSummaries(params?: { q?: string; taskType?: strin
   if (responseData.status !== 0) {
     throw new Error(responseData.message || '获取任务列表失败');
   }
-  return responseData.data.tasks as TaskSummary[];
+  // 后端 0 命中时返回 data.tasks = null（Go nil slice 序列化），归一为空数组
+  return (responseData.data.tasks ?? []) as TaskSummary[];
 }
 
 export async function fetchTaskDetailRaw(sessionId: string): Promise<TaskDetailRaw> {

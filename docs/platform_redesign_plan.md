@@ -103,10 +103,56 @@
 
 ---
 
+## 五点五、阶段 8.6 — 同步 dev 最新改动 + 按「后端实际接口」校准前端（2026-09-18 启动）
+
+> 用户要求：根据最新 dev 分支改动 + 后端真实功能/接口设计和开发前端 UI；后端未实现的功能可用 mock 但必须标记；**不能随意新增**（无后端支撑的能力不做）。流程 = 先测试 → 开发 → 再测试，全程记录。
+
+### dev 新增改动（79505869..a1939935，2 个实质提交）
+
+| 提交 | 内容 | 前端落点 |
+|------|------|----------|
+| `2117560a` | 终止任务时杀死整个进程组（Python 孙进程泄漏修复） | 纯后端，无前端 API 变化 |
+| `ac3053a6` | 任务结束后执行控制台仍可达：ChatArea 头部新增 Terminal 按钮（任意状态可开控制台）；ScanProgressConsole 加 onBack；consoleOpen 状态管理 | **需要合并进平台分支**：App.tsx（冲突）、ChatArea.tsx（自动）、ScanProgressConsole.tsx（自动）、i18n（自动） |
+
+### 后端接口实测盘点（对 127.0.0.1:8088 live server 验证，dev 与本分支后端一致）
+
+**已实现（前端可直接对接）：**
+- `GET /api/v1/app/tasks` — 列表：sessionId/title/taskType/status/createdAt/updatedAt/completedAt/source；支持 `?q=&taskType=`（服务端搜索已存在！SimpleSearchParams.page/pageSize 但 handler 写死 999）
+- `GET /api/v1/app/tasks/:id` — 详情：含 messages 全量回放（planUpdate/newPlanStep/statusUpdate/toolUsed/actionLog/messageTrace/resultUpdate）
+- 任务终止/删除/改名/分享/SSE/三段上传 — 已接
+- `GET /api/v1/knowledge/{fingerprints:154, vulnerabilities:2169, evaluations:17, mcp:15}` — 分页 ok
+- `GET /api/v1/knowledge/prompt_collections` — **存在端点**（PromptCollection: id/product/prompt/model_version/capabilities…），当前数据 0 条；前端可做真实 CRUD 列表页（非 mock）
+- `GET /api/v1/knowledge/agent/names`、`/app/models` CRUD、`/system/update-data`、`/version` — 已接/可用
+
+**未实现（前端 mock + 明确标记）：**
+- `GET /dashboard/summary` — 不存在（前端 USE_MOCK=true + 「演示数据」徽章已有）
+- 任务列表 riskCount/score/agentNode/progress 字段 — buildTaskSummary 无（表格 '—' + 本地 plan 推导）
+- Agent 节点 REST 列表 — 仅 /agents/ws WebSocket，GetAvailableAgents 未暴露 HTTP；Agent 页继续用配置清单口径
+- 服务端分页过滤 — handler 硬编码 page=1&pageSize=999；前端保持客户端分页
+
+### 8.6 执行清单（先测试 → 开发 → 再测试）
+
+- [x] 8.6.0 **测试基线（先测试）**：合并前 tsc/eslint/build 全绿确认；live API 探测记录（上表）
+- [x] 8.6.1 **合并 dev**：git merge dev；解 App.tsx 冲突（保留 PlatformApp 结构 + 移植 consoleOpen 逻辑到 TaskDetailPane/AssistantDock 控制台）；验证 tsc/eslint/build
+- [x] 8.6.2 **控制台可达性移植到平台 UI**：dev 的「任务结束仍可开控制台」能力在平台层的等价实现 = TaskDetailPane 加「执行控制台」入口（任意状态）+ ScanProgressConsole onBack 返回
+- [x] 8.6.3 **提示词集 Tab 接真实 API**：上一版做空态是误判——后端有 /knowledge/prompt_collections（含 CRUD）；改为真实列表（数据为空时展示真实空态 + 新建入口指向集合字段说明），**删除 mock 性质说明**
+- [x] 8.6.4 **任务列表接服务端搜索**：fetchTaskSummaries 已支持 q/taskType 透传 → TaskCenter 搜索框接入（300ms debounce），筛选仍客户端（后端无 status 过滤）
+- [x] 8.6.5 **再测试**：tsc + eslint + vite build；live server 冒烟（页面路径 + 关键交互）；文档勾选 + 进度日志 + 提交
+
+
 ## 六、进度日志
 
 - **2026-09-18**：接手分析完成；确认阶段 1–7 已交付（6 提交在 worktree 分支）；TSC/ESLint 基线实测；产出本规划文档。
+- **2026-09-18**：用户下达 8.6 任务（按 dev + 真实接口校准，mock 须标记，不得随意新增，测试→开发→测试）。dev 新增=控制台结束后可达+进程组终止（均无新 API）；live 实测确认 prompt_collections 端点存在（0 条数据）——8.3 的「提示词集空态」需改为真实对接。规划见「五点五」章节。
 - **2026-09-18**：阶段 8 完成（8.1–8.5）：删 DevKit/TaskSidebar/SensitiveDataPrompt、修 HelpDocumentPage escape、还原 pnpm-workspace；任务中心行内进度% + 导出 CSV（lib/taskCsv.ts）；规则库补「Agent 配置」只读 Tab + 「提示词集」空态 Tab（调研：后端无独立提示词端点）；趋势卡表格视图切换。验证：tsc 0 / eslint（platform）0 / vite build openSource 通过。新文件：lib/taskCsv.ts、platform/knowledge/{AgentConfigTabContent,PromptSetTabContent}.tsx。
+
+- **2026-09-18**：阶段 8.6 完成：
+  - 8.6.1 合并 dev（71f11dd8）：App.tsx 冲突按 PlatformApp 结构解决；ChatArea 的 Terminal 按钮 + ScanProgressConsole.onBack + i18n 自动并入
+  - 8.6.2 平台层控制台可达：TaskDetailPanel 增 consoleOpen/onConsoleOpenChange（dev consoleVisible 语义组件化）；TaskDetailPane 头部加 Terminal 切换按钮（任意状态可开控制台，含已结束任务）；AssistantDock 的 ChatArea onOpenConsole 接通（控制台浮层模式，任务切换自动关闭）
+  - 8.6.3 提示词集接真实 API：live 实测 /knowledge/prompt_collections 存在（GET 全量列表/POST/PUT 可用）；PromptSetTabContent 重写为真实 CRUD（列表+搜索+详情查看+新建表单，字段 id/product/prompt/model_version/capabilities）；发现并标注上游 DELETE 路由 bug（DELETE "" 无 :id 而 HandleDelete 读 Param → 恒 400），删除按钮禁用并显示警告徽章；统计卡新增「提示词集」（useKnowledgeTotals 增 promptCollectionCount）
+  - 8.6.4 任务中心搜索接服务端：300ms debounce → fetchTaskSummaries({q}) → 命中集合并入客户端筛选；修复后端 0 命中时 tasks:null 导致搜索失效的边界（fetchTaskSummaries 归一化 ?? []）
+  - 8.6.5 再测试：tsc 0 / eslint(platform+改动文件) 0 / vite build openSource 4.7s 通过；vite preview 冒烟：/ /tasks /scan /knowledge /agents /help 全 200、API 代理透传正常、live q=体检 命中 6 条验证通过
+  - 测试中发现的待办（后端）：prompt_collections DELETE 路由 bug、服务端分页仍硬编码 999（阶段 9 处理）
 
 ## 七、风险与约束备忘
 

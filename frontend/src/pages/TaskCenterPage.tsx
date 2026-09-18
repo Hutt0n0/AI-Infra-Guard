@@ -7,7 +7,8 @@ import { TaskTable } from '../components/platform/task/TaskTable';
 import type { TaskTableRow, TaskStatusFilter } from '../components/platform/task/TaskTable';
 import { TaskDetailPane } from '../components/platform/task/TaskDetailPane';
 import { useApp } from '../context/AppContext';
-import { deleteTaskRequest } from '../lib/taskApi';
+import { deleteTaskRequest, fetchTaskSummaries } from '../lib/taskApi';
+import type { TaskSummary } from '../lib/taskApi';
 import { tasksToCsv, downloadCsv } from '../lib/taskCsv';
 import { toast } from 'sonner';
 import {
@@ -43,6 +44,8 @@ export default function TaskCenterPage() {
   const [statusDraft, setStatusDraft] = React.useState<TaskStatusFilter>(statusFilter);
   const [typeDraft, setTypeDraft] = React.useState<string>(typeFilter);
   const [searchDraft, setSearchDraft] = React.useState('');
+  const [searchApplied, setSearchApplied] = React.useState(''); // 300ms debounce 后生效的服务端搜索词
+  const [searchHits, setSearchHits] = React.useState<TaskSummary[] | null>(null); // 服务端 q 搜索结果
   const [page, setPage] = React.useState(0);
   const [deleteTarget, setDeleteTarget] = React.useState<TaskTableRow | null>(null);
   const [deleting, setDeleting] = React.useState(false);
@@ -52,16 +55,37 @@ export default function TaskCenterPage() {
     setTypeDraft(typeFilter);
   }, [statusFilter, typeFilter]);
 
+  // 搜索防抖 → 服务端 q 参数（后端 HandleGetTaskList 支持 ?q= 检索 title/content/taskType）
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchApplied(searchDraft.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchDraft]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!searchApplied) {
+      setSearchHits(null);
+      return;
+    }
+    fetchTaskSummaries({ q: searchApplied })
+      .then(summaries => { if (!cancelled) setSearchHits(summaries); })
+      .catch(() => { if (!cancelled) setSearchHits(null); });
+    return () => { cancelled = true; };
+  }, [searchApplied]);
+
   const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
 
-  // 数据源：AppContext.tasks（5 秒轮询驱动）。状态/类型前端 filter，搜索标题/sessionId。
+  // 数据源：AppContext.tasks（5 秒轮询驱动）。状态/类型前端 filter（后端无对应参数）；
+  // 搜索走服务端 ?q=（fetchTaskSummaries 透传），结果按 sessionId 并入全量列表保证字段一致。
   const rows: TaskTableRow[] = React.useMemo(() => {
-    const q = searchDraft.trim().toLowerCase();
+    const hitIds = searchHits ? new Set(searchHits.map(s => s.sessionId)) : null;
     return state.tasks
       .filter(task => {
         if (statusDraft !== 'all' && mapAppStatus(task.status) !== statusDraft) return false;
         if (typeDraft !== 'all' && task.type !== typeDraft) return false;
-        if (q && !(`${task.title}`.toLowerCase().includes(q) || task.id.toLowerCase().includes(q))) return false;
+        if (hitIds && !hitIds.has(task.id)) return false;
         return true;
       })
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
@@ -81,13 +105,13 @@ export default function TaskCenterPage() {
           progress,
         };
       });
-  }, [state.tasks, statusDraft, typeDraft, searchDraft]);
+  }, [state.tasks, statusDraft, typeDraft, searchHits]);
 
   const pagedRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
 
   // 筛选变化时回到第一页
-  React.useEffect(() => { setPage(0); }, [statusDraft, typeDraft, searchDraft]);
+  React.useEffect(() => { setPage(0); }, [statusDraft, typeDraft, searchApplied]);
 
   const applyFilters = (status: TaskStatusFilter, type: string) => {
     const next = new URLSearchParams(searchParams);

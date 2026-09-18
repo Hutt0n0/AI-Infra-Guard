@@ -102,6 +102,7 @@ export function useKnowledgeTotals() {
     mcps: 0,
   });
   const [agentCount, setAgentCount] = useState<number | null>(null);
+  const [promptCollectionCount, setPromptCollectionCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,9 +131,17 @@ export function useKnowledgeTotals() {
           setAgentCount(Array.isArray(names) ? names.length : null);
         }
       } catch { /* 静默 */ }
+      // 提示词集（prompt_collections）：HandleList 返回全量，直接取 total
+      try {
+        const res = await fetch('/api/v1/knowledge/prompt_collections');
+        const data = await res.json();
+        if (!cancelled && data.status === 0) {
+          setPromptCollectionCount(data.data?.total ?? 0);
+        }
+      } catch { /* 静默 */ }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  return { totals, agentCount };
+  return { totals, agentCount, promptCollectionCount };
 }

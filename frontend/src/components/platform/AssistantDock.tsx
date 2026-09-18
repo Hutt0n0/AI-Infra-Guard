@@ -21,9 +21,23 @@ export default function AssistantDock() {
   const [open, setOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [consoleStageFilter, setConsoleStageFilter] = React.useState<string | null>(null);
+  // 执行控制台浮层（dev ac3053a6 平台等价：任意任务状态可开）
+  const [consoleOpen, setConsoleOpen] = React.useState(false);
 
   const detailState = useTaskDetailState();
   const { currentTask } = detailState;
+
+  // 打开控制台浮层：清选中步骤，进入控制台视图
+  const openConsoleOverlay = () => {
+    detailState.handleStepSelect(null);
+    setConsoleOpen(true);
+  };
+
+  // 任务切换时关闭控制台浮层
+  React.useEffect(() => {
+    setConsoleOpen(false);
+    setConsoleStageFilter(null);
+  }, [currentTask?.id]);
 
   const firstOpen = () => {
     if (!mounted) setMounted(true);
@@ -113,12 +127,13 @@ export default function AssistantDock() {
                 onStepSelect={detailState.handleStepSelect}
                 onMcpResultSelect={detailState.handleMcpResultSelect}
                 onToolSelect={detailState.handleToolSelect}
+                onOpenConsole={openConsoleOverlay}
                 welcomeAnimationCompleted={true}
               />
             </div>
 
-            {/* 详情浮层（抽屉内切换，不跳路由） */}
-            {currentTask && detailState.selectedStep && (
+            {/* 详情浮层（抽屉内切换，不跳路由；控制台模式显示执行流/目标通信） */}
+            {currentTask && (detailState.selectedStep || consoleOpen) && (
               <div
                 className="absolute right-0 top-0 h-full bg-white border-l z-10 flex flex-col"
                 style={{ width: 'min(55vw, 900px)', borderColor: 'var(--outline)' }}
@@ -132,7 +147,10 @@ export default function AssistantDock() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => detailState.handleStepSelect(null)}
+                    onClick={() => {
+                      setConsoleOpen(false);
+                      detailState.handleStepSelect(null);
+                    }}
                     className="ml-auto w-8 h-8 rounded-[10px] border grid place-items-center text-plat-ink-2 hover:bg-plat-surface-low cursor-pointer shrink-0"
                     style={{ borderColor: 'var(--outline)' }}
                     aria-label="back to chat"
@@ -148,6 +166,8 @@ export default function AssistantDock() {
                     onToggleFullscreen={() => {}}
                     consoleStageFilter={consoleStageFilter}
                     onStageFilterChange={setConsoleStageFilter}
+                    consoleOpen={consoleOpen}
+                    onConsoleOpenChange={setConsoleOpen}
                   />
                 </div>
               </div>

@@ -30,7 +30,7 @@ export default function RuleLibraryPage() {
   const activeTab: KnowledgeTab = TABS.some(x => x.key === tab) ? tab : 'vulnerabilities';
   // prompts/agents Tab 不走通用列表数据层（自带空态/独立数据源）
   const isLibTab = activeTab !== 'prompts' && activeTab !== 'agents';
-  const { totals, agentCount } = useKnowledgeTotals();
+  const { totals, agentCount, promptCollectionCount } = useKnowledgeTotals();
   const [syncing, setSyncing] = React.useState(false);
 
   const lib = useKnowledgeLibrary(isLibTab ? activeTab : 'vulnerabilities');
@@ -62,11 +62,12 @@ export default function RuleLibraryPage() {
     }
   };
 
-  const stats: { key: KnowledgeTab | 'agents'; label: string; value: number | null; unit: string }[] = [
+  const stats: { key: KnowledgeTab | 'agents' | 'prompts'; label: string; value: number | null; unit: string }[] = [
     { key: 'fingerprints', label: label('platform.ruleLibrary.statFp', '指纹规则'), value: totals.fingerprints, unit: 'YAML' },
     { key: 'vulnerabilities', label: label('platform.ruleLibrary.statVul', 'CVE 规则'), value: totals.vulnerabilities, unit: '条' },
     { key: 'evaluations', label: label('platform.ruleLibrary.statEval', '评测数据集'), value: totals.evaluations, unit: 'JSON' },
     { key: 'mcps', label: label('platform.ruleLibrary.statMcp', 'MCP 插件规则'), value: totals.mcps, unit: 'YAML' },
+    { key: 'prompts', label: label('platform.ruleLibrary.statPrompts', '提示词集'), value: promptCollectionCount, unit: 'JSON' },
     { key: 'agents', label: label('platform.ruleLibrary.statAgents', 'Agent 配置'), value: agentCount, unit: 'YAML' },
   ];
 
@@ -107,7 +108,7 @@ export default function RuleLibraryPage() {
       />
 
       {/* 统计卡 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5 mb-4">
         {stats.map(s => (
           <div
             key={s.key}

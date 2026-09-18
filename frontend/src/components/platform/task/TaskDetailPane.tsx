@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
+import { X, ExternalLink, RefreshCw, Loader2, Terminal } from 'lucide-react';
 import { TaskStatusBadge, TaskTypeBadge, SeverityBadge } from '../primitives';
 import { TaskDetailPanel } from '../TaskDetailPanel';
 import CollapsibleTaskPlan from '../../CollapsibleTaskPlan';
@@ -30,9 +30,17 @@ export function TaskDetailPane({
   const { t, ready } = useTranslation();
   const { task, isLoading, error, refresh } = useTaskDetail(sessionId);
   const [terminating, setTerminating] = React.useState(false);
+  const [consoleOpen, setConsoleOpen] = React.useState(false);
+  const [consoleStageFilter, setConsoleStageFilter] = React.useState<string | null>(null);
   const { actions } = useApp();
 
   const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
+
+  // 任务切换时重置控制台视图
+  React.useEffect(() => {
+    setConsoleOpen(false);
+    setConsoleStageFilter(null);
+  }, [sessionId]);
 
   const handleTerminate = async () => {
     if (!task) return;
@@ -82,6 +90,21 @@ export function TaskDetailPane({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* 执行控制台 — 任意状态可开（dev ac3053a6 平台等价实现） */}
+          <button
+            type="button"
+            onClick={() => setConsoleOpen(v => !v)}
+            title={label('chatArea.openConsole', '执行控制台')}
+            className="w-8 h-8 rounded-[10px] border grid place-items-center cursor-pointer transition-colors"
+            style={
+              consoleOpen
+                ? { background: 'var(--brand)', borderColor: 'var(--brand)', color: '#fff' }
+                : { borderColor: 'var(--outline)', color: 'var(--ink-2)' }
+            }
+            aria-label="console"
+          >
+            <Terminal className="w-4 h-4" />
+          </button>
           <button
             type="button"
             onClick={refresh}
@@ -140,6 +163,33 @@ export function TaskDetailPane({
           </div>
         )}
         {!isLoading && !error && task && (
+          consoleOpen ? (
+            /* 控制台全高视图（任务结束后仍可查看执行流与目标通信） */
+            <div className="h-full min-h-0">
+              <TaskDetailPanel
+                task={task}
+                state={{
+                  currentTask: task,
+                  selectedStep: null,
+                  selectedTool: null,
+                  mcpResult: undefined,
+                  infraScanResult: undefined,
+                  redteamReportResult: undefined,
+                  jailbreakResult: undefined,
+                  agentScanResult: undefined,
+                  handleStepSelect: () => {},
+                  handleToolSelect: () => {},
+                  handleMcpResultSelect: () => {},
+                }}
+                isFullscreen={false}
+                onToggleFullscreen={() => {}}
+                consoleStageFilter={consoleStageFilter}
+                onStageFilterChange={setConsoleStageFilter}
+                consoleOpen={true}
+                onConsoleOpenChange={open => !open && setConsoleOpen(false)}
+              />
+            </div>
+          ) : (
           <div className="h-full grid grid-rows-[auto_1fr] overflow-y-auto scrollbar-thin">
             {/* 执行计划 */}
             <div className="px-5 pt-4 pb-2">
@@ -170,11 +220,12 @@ export function TaskDetailPane({
                 }}
                 isFullscreen={false}
                 onToggleFullscreen={() => {}}
-                consoleStageFilter={null}
-                onStageFilterChange={() => {}}
+                consoleStageFilter={consoleStageFilter}
+                onStageFilterChange={setConsoleStageFilter}
               />
             </div>
           </div>
+          )
         )}
       </div>
     </div>
