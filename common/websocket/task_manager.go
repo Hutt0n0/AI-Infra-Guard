@@ -1104,6 +1104,7 @@ func (tm *TaskManager) GetUserTasks(username string, traceID string) ([]map[stri
 	var tasks []map[string]interface{}
 	for _, session := range sessions {
 		task := buildTaskSummary(session)
+		tm.enrichTaskSummary(session, task)
 
 		// 添加完成时间（如果任务已完成）
 		if session.CompletedAt != nil {
@@ -1130,6 +1131,7 @@ func (tm *TaskManager) GetUserTasksByType(username string, taskType string, trac
 	var tasks []map[string]interface{}
 	for _, session := range sessions {
 		task := buildTaskSummary(session)
+		tm.enrichTaskSummary(session, task)
 
 		// 添加完成时间（如果任务已完成）
 		if session.CompletedAt != nil {
@@ -1169,6 +1171,7 @@ func (tm *TaskManager) SearchUserTasksSimple(username string, searchParams datab
 	var tasks []map[string]interface{}
 	for _, session := range sessions {
 		task := buildTaskSummary(session)
+		tm.enrichTaskSummary(session, task)
 
 		// 添加完成时间（如果任务已完成）
 		if session.CompletedAt != nil {
@@ -1180,6 +1183,40 @@ func (tm *TaskManager) SearchUserTasksSimple(username string, searchParams datab
 		tasks = append(tasks, task)
 	}
 	return tasks, nil
+}
+
+// SearchUserTasksSimplePaged 同 SearchUserTasksSimple，但额外返回过滤后的总条数（服务端分页用）
+func (tm *TaskManager) SearchUserTasksSimplePaged(username string, searchParams database.SimpleSearchParams, traceID string) ([]map[string]interface{}, int64, error) {
+	log.Infof("简化搜索用户任务(分页): trace_id=%s, username=%s, query=%s, taskType=%s, status=%s, page=%d, pageSize=%d",
+		traceID, username, searchParams.Query, searchParams.TaskType, searchParams.Status, searchParams.Page, searchParams.PageSize)
+
+	if searchParams.Page < 1 {
+		searchParams.Page = 1
+	}
+	if searchParams.PageSize < 1 {
+		searchParams.PageSize = 10
+	}
+
+	sessions, total, err := tm.taskStore.SearchUserSessionsSimple(username, searchParams)
+	if err != nil {
+		log.Errorf("简化搜索用户任务失败: trace_id=%s, username=%s, error=%v", traceID, username, err)
+		return nil, 0, fmt.Errorf("搜索任务失败: %v", err)
+	}
+
+	var tasks []map[string]interface{}
+	for _, session := range sessions {
+		task := buildTaskSummary(session)
+		tm.enrichTaskSummary(session, task)
+
+		if session.CompletedAt != nil {
+			task["completedAt"] = *session.CompletedAt
+		} else {
+			task["completedAt"] = nil
+		}
+
+		tasks = append(tasks, task)
+	}
+	return tasks, total, nil
 }
 
 func buildTaskSummary(session *database.Session) map[string]interface{} {
@@ -1195,6 +1232,57 @@ func buildTaskSummary(session *database.Session) map[string]interface{} {
 		"createdAt":      session.CreatedAt,
 		"source":         source,
 		"sourceLabel":    sourceLabel,
+		// 平台扩展字段（取不到为 null，前端按 '—' 兜底）：
+		"assignedAgent": nullableString(session.AssignedAgent),
+		"riskCount":     nil, // 由 enrichTaskSummary 填充
+		"score":         nil,
+		"progress":      nil,
+	}
+}
+
+// nullableString 空串转 nil（JSON null）
+func nullableString(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// enrichTaskSummary 为列表项填充 riskCount/score/progress（每次详情查询，避免全表扫描）。
+// 仅 done 任务有评分/风险；运行中任务从最近 planUpdate 推导进度百分比。
+func (tm *TaskManager) enrichTaskSummary(session *database.Session, task map[string]interface{}) {
+	// 已完成任务：从最后一条 resultUpdate 提取评分与风险数
+	if session.Status == TaskStatusDone {
+		if last, err := tm.taskStore.GetLastMessageByType(session.ID, "resultUpdate"); err == nil && last != nil {
+			if stats := parseResultUpdateRisk(last.EventData, session.TaskType); stats != nil {
+				if stats.HasScore {
+					task["score"] = round1(stats.Score)
+				}
+				task["riskCount"] = stats.RiskCount
+			}
+		}
+		return
+	}
+	// 运行中任务：从最近 planUpdate 推导 plan 完成比
+	if session.Status == TaskStatusDoing {
+		if last, err := tm.taskStore.GetLastMessageByType(session.ID, "planUpdate"); err == nil && last != nil {
+			var ev struct {
+				Event struct {
+					Tasks []struct {
+						Status string `json:"status"`
+					} `json:"tasks"`
+				} `json:"event"`
+			}
+			if err := json.Unmarshal(last.EventData, &ev); err == nil && len(ev.Event.Tasks) > 0 {
+				done := 0
+				for _, t := range ev.Event.Tasks {
+					if t.Status == "done" {
+						done++
+					}
+				}
+				task["progress"] = int(float64(done) / float64(len(ev.Event.Tasks)) * 100)
+			}
+		}
 	}
 }
 

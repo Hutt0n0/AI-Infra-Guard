@@ -792,21 +792,34 @@ func HandleGetTaskList(c *gin.Context, tm *TaskManager) {
 	username := c.GetString("username")
 	query := c.Query("q")
 	taskType := c.DefaultQuery("taskType", "")
+	status := c.DefaultQuery("status", "")
+	// 服务端分页参数（q 存在时生效；未传 page/pageSize 保持旧行为=全量）
+	page := c.DefaultQuery("page", "1")
+	pageSize := c.DefaultQuery("pageSize", "999")
 	var err error
 
-	log.Debugf("开始获取任务列表: trace_id=%s, username=%s, taskType=%s", traceID, username, taskType)
+	log.Debugf("开始获取任务列表: trace_id=%s, username=%s, taskType=%s, status=%s", traceID, username, taskType, status)
 	var results []map[string]interface{}
-	if query != "" {
-		log.Debugf("搜索参数: trace_id=%s, username=%s, query=%s, taskType=%s", traceID, username, query, taskType)
+	var total int64
+	if query != "" || status != "" {
+		// 有搜索词或状态过滤时走分页搜索（page/pageSize 生效）
+		log.Debugf("搜索参数: trace_id=%s, username=%s, query=%s, taskType=%s, status=%s", traceID, username, query, taskType, status)
 		var searchParams database.SimpleSearchParams
 
 		// 从查询字符串获取搜索关键词和任务类型
 		searchParams.Query = query
 		searchParams.TaskType = taskType
-		searchParams.Page = 1
-		searchParams.PageSize = 999
+		searchParams.Status = status
+		fmt.Sscanf(page, "%d", &searchParams.Page)
+		fmt.Sscanf(pageSize, "%d", &searchParams.PageSize)
+		if searchParams.Page < 1 {
+			searchParams.Page = 1
+		}
+		if searchParams.PageSize < 1 {
+			searchParams.PageSize = 999
+		}
 		// 调用TaskManager进行简化搜索
-		results, err = tm.SearchUserTasksSimple(username, searchParams, traceID)
+		results, total, err = tm.SearchUserTasksSimplePaged(username, searchParams, traceID)
 		if err != nil {
 			log.Errorf("搜索任务失败: trace_id=%s, username=%s, error=%v", traceID, username, err)
 			c.JSON(http.StatusOK, gin.H{
@@ -829,15 +842,17 @@ func HandleGetTaskList(c *gin.Context, tm *TaskManager) {
 			})
 			return
 		}
+		total = int64(len(results))
 	}
 
-	log.Debugf("获取任务列表成功: trace_id=%s, username=%s, taskCount=%d", traceID, username, len(results))
+	log.Debugf("获取任务列表成功: trace_id=%s, taskCount=%d, total=%d", traceID, len(results), total)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  0,
 		"message": "获取任务列表成功",
 		"data": gin.H{
 			"tasks": results,
+			"total": total,
 		},
 	})
 }

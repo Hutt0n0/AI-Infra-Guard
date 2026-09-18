@@ -46,6 +46,7 @@ export default function TaskCenterPage() {
   const [searchDraft, setSearchDraft] = React.useState('');
   const [searchApplied, setSearchApplied] = React.useState(''); // 300ms debounce 后生效的服务端搜索词
   const [searchHits, setSearchHits] = React.useState<TaskSummary[] | null>(null); // 服务端 q 搜索结果
+  const [serverSummaries, setServerSummaries] = React.useState<TaskSummary[]>([]); // 全量列表（含阶段 9 扩展字段）
   const [page, setPage] = React.useState(0);
   const [deleteTarget, setDeleteTarget] = React.useState<TaskTableRow | null>(null);
   const [deleting, setDeleting] = React.useState(false);
@@ -77,6 +78,26 @@ export default function TaskCenterPage() {
 
   const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
 
+  // 后端扩展字段（阶段 9 buildTaskSummary/enrichTaskSummary）：riskCount/score/assignedAgent/progress
+  // AppContext.tasks 由旧映射构建不含这些字段，直接消费 fetchTaskSummaries 的原始返回。
+  const summariesById = React.useMemo(() => {
+    const map = new Map<string, TaskSummary>();
+    for (const s of serverSummaries) map.set(s.sessionId, s);
+    return map;
+  }, [serverSummaries]);
+
+  // 全量 summaries 轮询（10s 独立于 AppContext 5s 轮询；轻量、带新字段）
+  React.useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const load = () => fetchTaskSummaries()
+      .then(summaries => { if (!cancelled) setServerSummaries(summaries); })
+      .catch(() => { /* 静默——AppContext 列表仍是底座 */ });
+    load();
+    timer = setInterval(load, 10000);
+    return () => { cancelled = true; if (timer) clearInterval(timer); };
+  }, []);
+
   // 数据源：AppContext.tasks（5 秒轮询驱动）。状态/类型前端 filter（后端无对应参数）；
   // 搜索走服务端 ?q=（fetchTaskSummaries 透传），结果按 sessionId 并入全量列表保证字段一致。
   const rows: TaskTableRow[] = React.useMemo(() => {
@@ -90,9 +111,11 @@ export default function TaskCenterPage() {
       })
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
       .map(task => {
-        // 行内进度：plan 完成比（与 TaskDetailPane 同口径）；助手活跃会话的 plan 由 SSE 实时更新
-        let progress: number | undefined;
-        if (task.plan?.length) {
+        // 行内进度：优先后端 enrichTaskSummary 的 progress（plan 完成比）；
+        // 后端未重编/无数据时回退 AppContext plan 推导（助手活跃会话由 SSE 实时更新）
+        const summary = summariesById.get(task.id);
+        let progress: number | undefined = (summary?.progress as number | null | undefined) ?? undefined;
+        if (progress == null && task.plan?.length) {
           progress = Math.round((task.plan.filter(s => s.status === 'done').length / task.plan.length) * 100);
         }
         return {
@@ -103,9 +126,12 @@ export default function TaskCenterPage() {
           createdAt: task.createdAt.getTime(),
           updatedAt: task.updatedAt.getTime(),
           progress,
+          riskCount: (summary?.riskCount as number | null | undefined) ?? undefined,
+          score: (summary?.score as number | null | undefined) ?? undefined,
+          agentNode: (summary?.assignedAgent as string | null | undefined) ?? undefined,
         };
       });
-  }, [state.tasks, statusDraft, typeDraft, searchHits]);
+  }, [state.tasks, statusDraft, typeDraft, searchHits, summariesById]);
 
   const pagedRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));

@@ -24,6 +24,10 @@ export interface TaskTableRow {
   target?: string;
   /** 运行中任务的进度（0-100，plan 完成比；无 plan 数据时不显示） */
   progress?: number;
+  /** 阶段 9 后端扩展字段（enrichTaskSummary；取不到为 undefined → '—'） */
+  riskCount?: number;
+  score?: number;
+  agentNode?: string;
 }
 
 export function TaskTable({
@@ -73,7 +77,7 @@ export function TaskTable({
     {
       key: 'agent',
       header: label('platform.taskCenter.colAgent', 'Agent 节点'),
-      cell: () => <span className="text-plat-muted">—</span>,
+      cell: r => <span className="font-mono text-[12px] text-plat-ink-2 truncate block max-w-[140px]">{r.agentNode || '—'}</span>,
     },
     {
       key: 'status',
@@ -89,13 +93,17 @@ export function TaskTable({
       key: 'risks',
       header: label('platform.taskCenter.colRisks', '风险'),
       numeric: true,
-      cell: () => <span className="text-plat-muted">—</span>,
+      cell: r => r.riskCount != null
+        ? <span className="font-semibold" style={{ color: r.riskCount > 0 ? 'var(--st-crit-t)' : 'var(--st-good-t)' }}>{r.riskCount}</span>
+        : <span className="text-plat-muted">—</span>,
     },
     {
       key: 'score',
       header: label('platform.taskCenter.colScore', '评分'),
       numeric: true,
-      cell: () => <span className="text-plat-muted">—</span>,
+      cell: r => r.score != null
+        ? <span className="font-semibold" style={{ color: r.score < 60 ? 'var(--st-crit-t)' : r.score < 80 ? 'var(--st-warn-t)' : 'var(--st-good-t)' }}>{r.score}</span>
+        : <span className="text-plat-muted">—</span>,
     },
   ];
 

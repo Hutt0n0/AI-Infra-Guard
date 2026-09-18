@@ -8,7 +8,7 @@ const API_BASE = '/api/v1/app/tasks';
 
 // ============ 类型 ============
 
-/** 后端 buildTaskSummary 返回的任务列表项（无风险数/评分字段） */
+/** 后端 buildTaskSummary 返回的任务列表项（阶段 9 起 enrichTaskSummary 填充扩展字段） */
 export interface TaskSummary {
   sessionId: string;
   title: string;
@@ -21,6 +21,11 @@ export interface TaskSummary {
   completedAt?: number;
   source?: string;
   sourceLabel?: string;
+  // 阶段 9 扩展（取不到为 null）
+  assignedAgent?: string | null;
+  riskCount?: number | null;
+  score?: number | null;
+  progress?: number | null;
 }
 
 export interface TaskDetailRaw {

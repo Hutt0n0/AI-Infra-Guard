@@ -24,7 +24,8 @@
     "settings": "Settings",
     "changelog": "Changelog",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "retry": "Retry"
   },
   "versionUpdate": {
     "title": "A new version is available",
@@ -1308,7 +1309,19 @@
       "findingItem": "Finding",
       "findingLevel": "Level",
       "findingImpact": "Impact",
-      "colDate": "Date"
+      "colDate": "Date",
+      "typeRedteam": "Model-Redteam",
+      "loading": "Loading posture data…",
+      "domainUnsupported": "Asset-domain dimension requires AI-Infra-Scan target assets",
+      "domainUnsupportedShort": "Asset domain pending",
+      "kpiSample": "{{count}} task samples",
+      "kpiBaseTotal": "{{count}} test cases",
+      "kpiSevRange": "Critical {{c}} · High {{h}} · Medium {{m}}",
+      "topTargetsTitle": "Top Risky Targets",
+      "topTargetsSub": "By risk finding count",
+      "emptyTargets": "No target risk data yet",
+      "scoreDistUnsupported": "Requires AI-Infra-Scan asset fingerprint data — not produced by current task types",
+      "componentsUnsupported": "Requires AI-Infra-Scan fingerprint scan data — not produced by current task types"
     },
     "taskCenter": {
       "pageSub": "All five scan task types · live SSE progress · agent dispatch",
@@ -1393,13 +1406,16 @@
       "promptView": "View",
       "promptDetailSub": "Prompt collection details",
       "promptAffiliation": "Affiliation",
-      "promptDeleteDisabled": "Delete unavailable (backend fix pending)",
-      "promptDeleteBug": "Backend delete endpoint lacks a route param — temporarily unavailable",
       "capCodeExec": "Code Exec",
       "capUploadFile": "File Upload",
       "capMultiModal": "Multimodal",
       "capWebSearch": "Web Search",
-      "capSecPolicies": "Sec Policies"
+      "capSecPolicies": "Sec Policies",
+      "promptDelete": "Delete",
+      "promptDeleteTitle": "Delete Prompt Collection",
+      "promptDeleteDesc": "Delete \"{{id}}\"? This cannot be undone.",
+      "promptDeleted": "Prompt collection deleted",
+      "promptDeleteFailed": "Failed to delete"
     },
     "agents": {
       "pageSub": "Agent scan configs are execution nodes — manage connections and credentials of tested agents, with connectivity tests"

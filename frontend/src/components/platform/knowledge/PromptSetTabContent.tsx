@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Plus, Trash2, FileText, Search } from 'lucide-react';
+import { Loader2, Plus, FileText, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '../primitives';
 import type { DataTableColumn } from '../primitives';
@@ -11,8 +11,7 @@ import { Button } from '../../ui/button';
 
 /**
  * 后端 PromptCollection（common/websocket/knowledge2_api.go）— GET 列表返回全量。
- * DELETE 存在上游路由 bug（DELETE "" 注册无 :id，HandleDelete 读 c.Param("id") 恒空 → 恒 400），
- * 删除操作暂不可用，UI 上禁用并标注，待后端修复后放开。
+ * 阶段 9 已修复 DELETE 路由（原 DELETE("") 无 :id 导致恒 400），删除已可用。
  */
 interface PromptCollection {
   id: string;
@@ -50,6 +49,8 @@ export default function PromptSetTabContent() {
   const [searchDraft, setSearchDraft] = React.useState('');
   const [detail, setDetail] = React.useState<PromptCollection | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
+  const [deleteTarget, setDeleteTarget] = React.useState<PromptCollection | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
   // 新建表单（仅 id/product/prompt 三个核心字段；能力开关默认 false，编辑走 PUT）
   const [formId, setFormId] = React.useState('');
   const [formProduct, setFormProduct] = React.useState('');
@@ -126,6 +127,26 @@ export default function PromptSetTabContent() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API}/${deleteTarget.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.status === 0) {
+        toast.success(label('platform.ruleLibrary.promptDeleted', '提示词集已删除'));
+        setDeleteTarget(null);
+        load();
+      } else {
+        toast.error(data.message || label('platform.ruleLibrary.promptDeleteFailed', '删除失败'));
+      }
+    } catch {
+      toast.error(label('platform.ruleLibrary.promptDeleteFailed', '删除失败'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const columns: DataTableColumn<PromptCollection>[] = [
     {
       key: 'id',
@@ -175,14 +196,24 @@ export default function PromptSetTabContent() {
       key: 'actions',
       header: '',
       cell: r => (
-        <button
-          type="button"
-          onClick={e => { e.stopPropagation(); setDetail(r); }}
-          className="text-xs font-semibold cursor-pointer"
-          style={{ color: 'var(--brand-deep)' }}
-        >
-          {label('platform.ruleLibrary.promptView', '查看')}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); setDetail(r); }}
+            className="text-xs font-semibold cursor-pointer"
+            style={{ color: 'var(--brand-deep)' }}
+          >
+            {label('platform.ruleLibrary.promptView', '查看')}
+          </button>
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); setDeleteTarget(r); }}
+            className="text-xs font-semibold cursor-pointer"
+            style={{ color: 'var(--st-crit-t)' }}
+          >
+            {label('platform.ruleLibrary.promptDelete', '删除')}
+          </button>
+        </div>
       ),
     },
   ];
@@ -230,15 +261,6 @@ export default function PromptSetTabContent() {
           <div className="flex items-center justify-between px-5 py-3 border-t" style={{ borderTopColor: 'var(--plat-grid)' }}>
             <span className="text-[11.5px] text-plat-muted">
               {label('platform.ruleLibrary.promptTotal', '共 {{count}} 个集合').replace('{{count}}', String(rows.length))}
-            </span>
-            {/* 后端 DELETE 路由缺陷（HandleDelete 依赖 :id 但路由未注册参数）→ 删除暂不可用 */}
-            <span
-              className="inline-flex items-center gap-1 text-[11px] rounded-full px-2.5 py-1"
-              style={{ background: 'var(--st-warn-bg)', color: 'var(--st-warn-t)' }}
-              title={label('platform.ruleLibrary.promptDeleteBug', '后端删除接口路由参数缺失，暂时不可用')}
-            >
-              <Trash2 className="w-3 h-3" />
-              {label('platform.ruleLibrary.promptDeleteDisabled', '删除暂不可用（后端接口待修复）')}
             </span>
           </div>
         </>
@@ -288,8 +310,7 @@ export default function PromptSetTabContent() {
       </Dialog>
 
       {/* 新建集合 */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>        <DialogContent>
           <DialogHeader>
             <DialogTitle>{label('platform.ruleLibrary.promptNew', '新建集合')}</DialogTitle>
             <DialogDescription>
@@ -344,6 +365,27 @@ export default function PromptSetTabContent() {
             <Button onClick={handleCreate} disabled={creating}>
               {creating && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               {label('platform.ruleLibrary.promptCreate', '创建')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认 */}
+      <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{label('platform.ruleLibrary.promptDeleteTitle', '删除提示词集')}</DialogTitle>
+            <DialogDescription>
+              {label('platform.ruleLibrary.promptDeleteDesc', '确定删除「{{id}}」吗？该操作不可恢复。').replace('{{id}}', deleteTarget?.id || '')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              {label('common.cancel', '取消')}
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {label('common.delete', '删除')}
             </Button>
           </DialogFooter>
         </DialogContent>

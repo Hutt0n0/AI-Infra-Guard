@@ -13,6 +13,10 @@ export interface TaskCsvRow {
   updatedAt: number;
   target?: string;
   progress?: number;
+  /** 阶段 9 后端扩展字段 */
+  riskCount?: number;
+  score?: number;
+  agentNode?: string;
 }
 
 function csvEscape(value: string): string {
@@ -30,7 +34,7 @@ function fmtTime(ts: number): string {
 }
 
 export function tasksToCsv(rows: TaskCsvRow[]): string {
-  const header = ['sessionId', 'title', 'taskType', 'status', 'target', 'progress', 'createdAt', 'updatedAt'];
+  const header = ['sessionId', 'title', 'taskType', 'status', 'agentNode', 'riskCount', 'score', 'progress', 'createdAt', 'updatedAt'];
   const lines = [header.join(',')];
   for (const r of rows) {
     lines.push([
@@ -38,7 +42,9 @@ export function tasksToCsv(rows: TaskCsvRow[]): string {
       csvEscape(r.title || ''),
       r.taskType,
       r.status,
-      csvEscape(r.target || ''),
+      csvEscape(r.agentNode || ''),
+      r.riskCount != null ? String(r.riskCount) : '',
+      r.score != null ? String(r.score) : '',
       r.progress != null ? String(Math.round(r.progress)) : '',
       fmtTime(r.createdAt),
       fmtTime(r.updatedAt),

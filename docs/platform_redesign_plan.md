@@ -73,35 +73,27 @@
   - mock 提示徽章文案核对：zh/en 均已有 mockHint，无需改动
 - [x] 8.5 构建验证：tsc 0 错误；eslint（platform 范围）0 错误；`vite build --mode openSource` 通过 4.42s（chunk 体积警告为既有）
 
-## 四、阶段 9 — 后端平台化配套（Go）
+## 四、阶段 9 — 后端平台化配套（Go）✅ 2026-09-18 完成
 
-- [ ] 9.1 `GET /api/v1/dashboard/summary`
-  - 返回：KPI（综合安全评分/待处置风险/覆盖资产/越狱通过率）+ 趋势（按任务类型分系列）+ 严重度分布 + Top 风险资产 + 评分分布 + Top 组件 + 最新发现
-  - 参数：`taskType` / `timeRange`（7d/30d/90d）；assetDomain 一期无资产域概念，参数保留但忽略
-  - 落点：`common/websocket/`（建议独立 `dashboard_api.go`，不再往 task_manager.go 塞）
-  - 数据口径：从 SQLite sessions + 任务结果 JSON 聚合；无法得出的指标（如综合评分历史）先用可得数据的降级口径并在响应中带 `coverage` 说明
-- [ ] 9.2 `buildTaskSummary` 扩展（task_manager.go:1185）
-  - 新增：`riskCount`（发现风险数）、`score`（安全评分）、`agentNode`（执行 agent）、`progress`（0–100）
-  - 从 session 结果/plan 数据推导，取不到返回 null（前端已按 '—' 兜底）
-- [ ] 9.3 任务列表服务端分页 + 过滤
-  - list 接口加 `page`/`pageSize`/`status`/`type`/`search` 参数；前端 TaskCenter 去掉 pageSize=999 hack，切真分页
-- [ ] 9.4 前端切换
-  - `useDashboardData` 的 `USE_MOCK=false` + 实现 `fetchDashboardStats(filters)`
-  - TaskCenter 分页/筛选切服务端
-- [ ] 9.5 Go 侧验证：`go build ./...`、`go test ./common/...`；重编 server 二进制；文档更新 + 提交
-
-## 五、阶段 10 — 二期能力页
-
-- [ ] 10.1 越狱评测独立页（`/jailbreak`）
-  - 聚焦 Model-Redteam-Report 任务：数据集/攻击方法概览、通过率趋势、历史对比
-  - SideNav「越狱评测」从预筛选跳转改为独立路由
-- [ ] 10.2 报告中心独立页（`/reports`）
-  - 已完成任务列表 + 报告预览（内嵌 /report/:sessionId 或跳转）；SideNav 同步切换
-- [ ] 10.3 通知中心
-  - Topbar 铃铛接 SSE 任务完成/失败事件，下拉通知列表（一期可先浏览器通知/红点）
-- [ ] 10.4 设置从 Dialog 升级为独立页（视使用频率决定优先级）
-
----
+- [x] 9.1 `GET /api/v1/dashboard/summary`（新增 `common/websocket/dashboard_api.go`，路由注册于 server.go `/dashboard` 组）
+  - 返回：KPI（score 均值/pendingRisks/coveredAssets 去重目标/jailbreakPassRate=1-攻破率）+ 按日按类型趋势 + 严重度分布 + topTargets + recentFindings + coverage 口径说明
+  - 数据源：sessions + task_messages 最后一条 resultUpdate（parseResultUpdateRisk 兼容两种存储形状：task_messages 顶层 {result} 与 SSE 嵌套 {event:{result}}）
+  - 无数据支撑的指标（assetDomain/scoreDist/topComponents）coverage=false，前端显示空态说明而非 mock
+- [x] 9.2 `buildTaskSummary` 扩展（task_manager.go）
+  - 新增 assignedAgent/riskCount/score/progress 字段（nullable）；`enrichTaskSummary` 按任务状态取 resultUpdate（done→评分/风险）或 planUpdate（doing→plan 完成比）；三个列表入口（GetUserTasks/GetUserTasksByType/SearchUserTasksSimple）全部接线
+- [x] 9.3 任务列表服务端分页 + 过滤
+  - SimpleSearchParams 增 Status；SearchUserSessionsSimple 增 status WHERE；HandleGetTaskList 支持 page/pageSize/status（有 q 或 status 时走分页搜索并返回 total）；无参数时保持旧行为（全量，向后兼容助手旧链路）
+  - 新增 SearchUserTasksSimplePaged 返回 total
+- [x] 9.4 修复 prompt_collections DELETE 路由 bug：DELETE("")→DELETE("/:id")（live 实测 created→deleted→total 0 通过）；前端解除删除禁用，补删除确认对话框
+- [x] 9.5 前端切换
+  - 新增 `lib/dashboardApi.ts`；useDashboardData 重写为真实 API（isLoading/error/unsupported 状态，删 mock 依赖；mock/dashboard.ts 保留未删——TrendChartCard 等旧 mock 消费链已断开）
+  - DashboardPage：真数据 KPI（score=null 显示 '—'）、TopRiskTargets 卡（真实 riskCount）、评分分布/组件识别两张空态说明卡、Model-Redteam 类型筛选、资产域"待接入"徽章
+  - TaskCenter：riskCount/score/agentNode 列点亮（10s 轮询 fetchTaskSummaries 取扩展字段，progress 优先后端）；CSV 导出含新字段
+- [x] 9.6 验证
+  - `go build ./...` 0 错误；`go vet` 通过；`go test ./pkg/database/...` ok（common/utils TestFaviconHash、runner/fingerprints 数据路径类失败为既有问题，unmodified HEAD 复现一致）
+  - 二进制重建（含新前端 embed，hash main-tLFa1Glo.js）→ 替换 fluffy worktree bin → live server 重启（PID 随机，端口 8088）
+  - live 验证：dashboard summary 返回真实聚合（12 样本均分 68.7 / 6 风险 / 通过率 100% / 2 目标 / 趋势 2 天）；任务列表新字段生效（risk:0 score:100 agent:test_id）；status=done→12 条精确过滤；q+分页 total 正确；0 命中→total 0；prompt_collections DELETE 通；任务详情/knowledge 回归正常
+  - 修复过程中发现的 bug：① event_data 存储形状与 SSE 不同（顶层 result vs event.result）→ parseResultUpdateRisk 双兼容；② status 过滤只在有 q 时生效 → 分支条件改 q||status
 
 ## 五点五、阶段 8.6 — 同步 dev 最新改动 + 按「后端实际接口」校准前端（2026-09-18 启动）
 
@@ -153,6 +145,8 @@
   - 8.6.4 任务中心搜索接服务端：300ms debounce → fetchTaskSummaries({q}) → 命中集合并入客户端筛选；修复后端 0 命中时 tasks:null 导致搜索失效的边界（fetchTaskSummaries 归一化 ?? []）
   - 8.6.5 再测试：tsc 0 / eslint(platform+改动文件) 0 / vite build openSource 4.7s 通过；vite preview 冒烟：/ /tasks /scan /knowledge /agents /help 全 200、API 代理透传正常、live q=体检 命中 6 条验证通过
   - 测试中发现的待办（后端）：prompt_collections DELETE 路由 bug、服务端分页仍硬编码 999（阶段 9 处理）
+
+- **2026-09-18**：阶段 9 完成（后端聚合端点 + 列表扩展 + 分页 + DELETE bug 修复 + 前端全量切换真数据）。提交 = 阶段 9 系列。live server 已运行新二进制（含新前端 embed）。Dashboard 不再有任何 mock 数据消费（mock/dashboard.ts 已无引用方，保留文件待阶段 10 决定去留）。
 
 ## 七、风险与约束备忘
 

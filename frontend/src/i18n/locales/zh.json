@@ -24,7 +24,8 @@
     "settings": "设置",
     "changelog": "更新日志",
     "expand": "展开",
-    "collapse": "收起"
+    "collapse": "收起",
+    "retry": "重试"
   },
   "versionUpdate": {
     "title": "发现新版本",
@@ -1307,7 +1308,19 @@
       "findingItem": "风险项",
       "findingLevel": "级别",
       "findingImpact": "评分影响",
-      "colDate": "日期"
+      "colDate": "日期",
+      "typeRedteam": "Model-Redteam",
+      "loading": "加载态势数据…",
+      "domainUnsupported": "资产域维度需 AI-Infra-Scan 目标资产入库后启用",
+      "domainUnsupportedShort": "资产域维度待接入",
+      "kpiSample": "{{count}} 个任务样本",
+      "kpiBaseTotal": "{{count}} 条测试",
+      "kpiSevRange": "严重 {{c}} · 高危 {{h}} · 中危 {{m}}",
+      "topTargetsTitle": "最高风险目标",
+      "topTargetsSub": "按风险发现数排序",
+      "emptyTargets": "暂无目标风险数据",
+      "scoreDistUnsupported": "该指标需要 AI-Infra-Scan 资产指纹数据，当前任务类型暂未产出",
+      "componentsUnsupported": "该指标需要 AI-Infra-Scan 指纹扫描数据，当前任务类型暂未产出"
     },
     "taskCenter": {
       "pageSub": "统一管理五类检测任务 · SSE 实时进度 · Agent 调度",
@@ -1392,13 +1405,16 @@
       "promptView": "查看",
       "promptDetailSub": "提示词集合详情",
       "promptAffiliation": "归属",
-      "promptDeleteDisabled": "删除暂不可用（后端接口待修复）",
-      "promptDeleteBug": "后端删除接口路由参数缺失，暂时不可用",
       "capCodeExec": "代码执行",
       "capUploadFile": "文件上传",
       "capMultiModal": "多模态",
       "capWebSearch": "联网搜索",
-      "capSecPolicies": "安全策略"
+      "capSecPolicies": "安全策略",
+      "promptDelete": "删除",
+      "promptDeleteTitle": "删除提示词集",
+      "promptDeleteDesc": "确定删除「{{id}}」吗？该操作不可恢复。",
+      "promptDeleted": "提示词集已删除",
+      "promptDeleteFailed": "删除失败"
     },
     "agents": {
       "pageSub": "Agent 扫描配置即执行节点 — 管理被测 Agent 的连接与凭据，支持连通性测试"
