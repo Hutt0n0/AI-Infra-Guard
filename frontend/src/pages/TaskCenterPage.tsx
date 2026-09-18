@@ -1,13 +1,14 @@
 import * as React from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Trash2 } from 'lucide-react';
+import { Search, Plus, Trash2, Download } from 'lucide-react';
 import { PageHeader, FilterChips, FilterRow, FilterSeparator } from '../components/platform/primitives';
 import { TaskTable } from '../components/platform/task/TaskTable';
 import type { TaskTableRow, TaskStatusFilter } from '../components/platform/task/TaskTable';
 import { TaskDetailPane } from '../components/platform/task/TaskDetailPane';
 import { useApp } from '../context/AppContext';
 import { deleteTaskRequest } from '../lib/taskApi';
+import { tasksToCsv, downloadCsv } from '../lib/taskCsv';
 import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -64,14 +65,22 @@ export default function TaskCenterPage() {
         return true;
       })
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-      .map(task => ({
-        sessionId: task.id,
-        title: task.title,
-        taskType: task.type,
-        status: mapAppStatus(task.status),
-        createdAt: task.createdAt.getTime(),
-        updatedAt: task.updatedAt.getTime(),
-      }));
+      .map(task => {
+        // 行内进度：plan 完成比（与 TaskDetailPane 同口径）；助手活跃会话的 plan 由 SSE 实时更新
+        let progress: number | undefined;
+        if (task.plan?.length) {
+          progress = Math.round((task.plan.filter(s => s.status === 'done').length / task.plan.length) * 100);
+        }
+        return {
+          sessionId: task.id,
+          title: task.title,
+          taskType: task.type,
+          status: mapAppStatus(task.status),
+          createdAt: task.createdAt.getTime(),
+          updatedAt: task.updatedAt.getTime(),
+          progress,
+        };
+      });
   }, [state.tasks, statusDraft, typeDraft, searchDraft]);
 
   const pagedRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -114,6 +123,21 @@ export default function TaskCenterPage() {
     }
   };
 
+  // 导出 CSV — 当前筛选结果（rows），Blob 下载
+  const handleExportCsv = () => {
+    if (rows.length === 0) {
+      toast.info(label('platform.taskCenter.exportEmpty', '当前筛选无任务可导出'));
+      return;
+    }
+    const stamp = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    downloadCsv(
+      `aig-tasks-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.csv`,
+      tasksToCsv(rows),
+    );
+    toast.success(label('platform.taskCenter.exportSuccess', '已导出 {{count}} 条任务', { count: rows.length }));
+  };
+
   return (
     <div className="flex h-full min-h-0">
       <div className="flex-1 min-w-0 flex flex-col">
@@ -122,6 +146,15 @@ export default function TaskCenterPage() {
           subtitle={label('platform.taskCenter.pageSub', '统一管理五类检测任务 · 实时进度')}
           actions={
             <>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="inline-flex items-center gap-[7px] rounded-[11px] border bg-white px-[15px] py-2 text-[13px] font-semibold text-plat-ink-2 hover:bg-plat-surface-low cursor-pointer"
+                style={{ borderColor: 'var(--outline)' }}
+              >
+                <Download className="w-[15px] h-[15px]" />
+                {label('platform.taskCenter.exportCsv', '导出 CSV')}
+              </button>
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('platform:openAssistant'))}

@@ -8,6 +8,8 @@ import FingerprintTabContent from '../components/management/FingerprintTabConten
 import VulnerabilityTabContent from '../components/management/VulnerabilityTabContent';
 import EvaluationTabContent from '../components/management/EvaluationTabContent';
 import MCPTabContent from '../components/management/MCPTabContent';
+import AgentConfigTabContent from '../components/platform/knowledge/AgentConfigTabContent';
+import PromptSetTabContent from '../components/platform/knowledge/PromptSetTabContent';
 import { useKnowledgeLibrary, useKnowledgeTotals } from '../hooks/useKnowledgeLibrary';
 import type { KnowledgeTab } from '../hooks/useKnowledgeLibrary';
 
@@ -16,6 +18,8 @@ const TABS: { key: KnowledgeTab; labelKey: string; fallback: string }[] = [
   { key: 'fingerprints', labelKey: 'platform.ruleLibrary.tabFp', fallback: '指纹库' },
   { key: 'evaluations', labelKey: 'platform.ruleLibrary.tabEval', fallback: '评测集' },
   { key: 'mcps', labelKey: 'platform.ruleLibrary.tabMcp', fallback: 'MCP 插件' },
+  { key: 'prompts', labelKey: 'platform.ruleLibrary.tabPrompts', fallback: '提示词集' },
+  { key: 'agents', labelKey: 'platform.ruleLibrary.tabAgents', fallback: 'Agent 配置' },
 ];
 
 /** 规则库 — 知识库平台化页面：统计卡 + 4 Tab（复用 management TabContent） */
@@ -24,10 +28,12 @@ export default function RuleLibraryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as KnowledgeTab) || 'vulnerabilities';
   const activeTab: KnowledgeTab = TABS.some(x => x.key === tab) ? tab : 'vulnerabilities';
+  // prompts/agents Tab 不走通用列表数据层（自带空态/独立数据源）
+  const isLibTab = activeTab !== 'prompts' && activeTab !== 'agents';
   const { totals, agentCount } = useKnowledgeTotals();
   const [syncing, setSyncing] = React.useState(false);
 
-  const lib = useKnowledgeLibrary(activeTab);
+  const lib = useKnowledgeLibrary(isLibTab ? activeTab : 'vulnerabilities');
   const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
 
   const setTab = (key: KnowledgeTab) => {
@@ -137,6 +143,20 @@ export default function RuleLibraryPage() {
           onChange={key => setTab(key as KnowledgeTab)}
         />
       </FilterRow>
+
+      {/* 提示词集（空态说明，无独立后端源）与 Agent 配置（自带数据层） */}
+      {activeTab === 'prompts' && (
+        <SectionCard>
+          <PromptSetTabContent />
+        </SectionCard>
+      )}
+      {activeTab === 'agents' && (
+        <SectionCard padded={false} className="overflow-hidden">
+          <div className="p-[18px_20px]">
+            <AgentConfigTabContent />
+          </div>
+        </SectionCard>
+      )}
 
       {/* Tab 内容（复用 management TabContent，数据层来自 useKnowledgeLibrary） */}
       <div id="rule-list">

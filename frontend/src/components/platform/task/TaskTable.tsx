@@ -22,6 +22,8 @@ export interface TaskTableRow {
   updatedAt: number;
   /** 目标：后端列表无此字段，一期显示 content 截断（由页面层透传或 '—'） */
   target?: string;
+  /** 运行中任务的进度（0-100，plan 完成比；无 plan 数据时不显示） */
+  progress?: number;
 }
 
 export function TaskTable({
@@ -76,7 +78,12 @@ export function TaskTable({
     {
       key: 'status',
       header: label('platform.taskCenter.colStatus', '状态'),
-      cell: r => <TaskStatusBadge status={r.status} />,
+      cell: r => (
+        <TaskStatusBadge
+          status={r.status}
+          progress={r.status === 'doing' && r.progress != null ? r.progress : undefined}
+        />
+      ),
     },
     {
       key: 'risks',

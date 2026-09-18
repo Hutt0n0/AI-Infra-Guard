@@ -311,7 +311,7 @@ const HelpDocumentPage: React.FC = () => {
                         rehypePlugins={[rehypeRaw]}
                         components={{
                           h1: ({ children }) => {
-                            const id = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fff\-]/g, '');
+                            const id = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fff-]/g, '');
                             return (
                               <h1 id={id} className="text-3xl font-bold text-gray-900 mb-6 border-b border-gray-200 pb-4">
                                 {children}
@@ -319,7 +319,7 @@ const HelpDocumentPage: React.FC = () => {
                             );
                           },
                           h2: ({ children }) => {
-                            const id = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fff\-]/g, '');
+                            const id = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fff-]/g, '');
                             return (
                               <h2 id={id} className="text-2xl font-semibold text-gray-900 mt-8 mb-4">
                                 {children}
@@ -327,7 +327,7 @@ const HelpDocumentPage: React.FC = () => {
                             );
                           },
                           h3: ({ children }) => {
-                            const id = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fff\-]/g, '');
+                            const id = String(children).toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fff-]/g, '');
                             return (
                               <h3 id={id} className="text-xl font-medium text-gray-900 mt-6 mb-3">
                                 {children}

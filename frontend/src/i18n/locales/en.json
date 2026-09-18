@@ -1306,7 +1306,8 @@
       "viewAllFindings": "All findings →",
       "findingItem": "Finding",
       "findingLevel": "Level",
-      "findingImpact": "Impact"
+      "findingImpact": "Impact",
+      "colDate": "Date"
     },
     "taskCenter": {
       "pageSub": "All five scan task types · live SSE progress · agent dispatch",
@@ -1337,7 +1338,10 @@
       "console": "Live Output",
       "terminate": "Terminate",
       "openInAssistant": "Open in Assistant",
-      "loading": "Loading task detail…"
+      "loading": "Loading task detail…",
+      "exportCsv": "Export CSV",
+      "exportEmpty": "No tasks match the current filter",
+      "exportSuccess": "Exported {{count}} tasks"
     },
     "ruleLibrary": {
       "pageSub": "Fingerprints · CVEs · eval datasets · MCP plugins · agent configs — unified knowledge management, live with scan engines",
@@ -1353,7 +1357,19 @@
       "sync": "Sync Official Rules",
       "syncStarted": "Rule sync started",
       "syncFailed": "Sync failed",
-      "newRule": "New Rule"
+      "newRule": "New Rule",
+      "tabPrompts": "Prompt Sets",
+      "tabAgents": "Agent Configs",
+      "agentColName": "Config Name",
+      "agentColType": "Protocol",
+      "agentColEndpoint": "Endpoint",
+      "agentLoading": "Loading agent configs…",
+      "agentEmpty": "No agent configs — create one in Agents & Nodes",
+      "agentTotal": "{{count}} configs",
+      "agentManage": "Go to Agents & Nodes →",
+      "promptEmptyTitle": "Standalone prompt library coming soon",
+      "promptEmptyDesc": "Prompt collections (jailbreak prompts, etc.) are currently managed under Evaluation Sets; check that tab. A standalone prompt library will arrive in a later release.",
+      "promptEmptyHint": "Existing prompt data is covered by the Evaluation Sets tab"
     },
     "agents": {
       "pageSub": "Agent scan configs are execution nodes — manage connections and credentials of tested agents, with connectivity tests"

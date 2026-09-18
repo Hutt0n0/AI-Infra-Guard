@@ -1305,7 +1305,8 @@
       "viewAllFindings": "全部发现 →",
       "findingItem": "风险项",
       "findingLevel": "级别",
-      "findingImpact": "评分影响"
+      "findingImpact": "评分影响",
+      "colDate": "日期"
     },
     "taskCenter": {
       "pageSub": "统一管理五类检测任务 · SSE 实时进度 · Agent 调度",
@@ -1336,7 +1337,10 @@
       "console": "实时输出",
       "terminate": "终止任务",
       "openInAssistant": "在助手打开",
-      "loading": "加载任务详情…"
+      "loading": "加载任务详情…",
+      "exportCsv": "导出 CSV",
+      "exportEmpty": "当前筛选无任务可导出",
+      "exportSuccess": "已导出 {{count}} 条任务"
     },
     "ruleLibrary": {
       "pageSub": "指纹 · CVE · 评测集 · MCP 插件 · Agent 配置 — 统一知识库管理，与扫描引擎实时联动",
@@ -1352,7 +1356,19 @@
       "sync": "同步官方规则",
       "syncStarted": "规则同步已启动",
       "syncFailed": "同步失败",
-      "newRule": "新建规则"
+      "newRule": "新建规则",
+      "tabPrompts": "提示词集",
+      "tabAgents": "Agent 配置",
+      "agentColName": "配置名",
+      "agentColType": "协议类型",
+      "agentColEndpoint": "Endpoint",
+      "agentLoading": "加载 Agent 配置…",
+      "agentEmpty": "暂无 Agent 配置 — 在「节点与 Agent」页新建",
+      "agentTotal": "共 {{count}} 个配置",
+      "agentManage": "前往节点与 Agent 管理 →",
+      "promptEmptyTitle": "提示词集独立库建设中",
+      "promptEmptyDesc": "当前版本的提示词集合（越狱提示词等）归属「评测集」分类管理，可在评测集 Tab 中查看；独立的提示词库将在后续版本提供。",
+      "promptEmptyHint": "评测集 Tab 已覆盖现有提示词数据"
     },
     "agents": {
       "pageSub": "Agent 扫描配置即执行节点 — 管理被测 Agent 的连接与凭据，支持连通性测试"
