@@ -183,6 +183,8 @@
 
 - **2026-09-20**：提示词集 Tab 崩溃修复（提交 1f1e7e78）：根因链 = ①Go filepath.WalkDir 对软链 root 用 Lstat 语义（data/prompt_collections 是指向主仓库的软链）→ root 被当文件处理 → loadFile 返回 (nil,nil)；②HandleList 无条件 append nil 且 nil slice 序列化为 {"items":[null]}；③前端 rowKey 读 null.id 崩。修复：后端跳过 nil 项 + make 空数组（惠及全部 4 类知识库 Tab）；前端过滤无效行；补建主仓库缺失的 data/prompt_collections 目录（软链此前悬空）。Playwright 验证 /knowledge?tab=prompts 零错误渲染。
 
+- **2026-09-20**：新建体检表单 Tooltip 崩溃修复：AttackMethodSelector 依赖调用方提供 TooltipProvider（旧 UI 在 ChatArea 内有全局 Provider，平台 ScanForm 没有）→ 组件自带 Provider 自包含化（旧路径双层 Provider 无害）。Playwright 验证体检/Agent 两类表单零 JS 错误。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
