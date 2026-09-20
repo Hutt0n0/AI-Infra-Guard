@@ -48,6 +48,7 @@ type Agent struct {
 	sendChan chan interface{}
 	ctx      context.Context
 	cancel   context.CancelFunc
+	writeMu  sync.Mutex // gorilla/websocket 不允许并发写，ping pong 与消息发送共用一把锁
 
 	// 配置
 	mutex sync.RWMutex
@@ -94,16 +95,32 @@ func (a *Agent) RegisterTaskFunc(taskFunc TaskInterface) {
 	a.info.Capabilities = append(a.info.Capabilities, taskFunc.GetName())
 }
 
-// Start 启动Agent
+// Start 启动Agent。连接断开后自动重连（指数退避，上限 60s），
+// 此前断线即退出进程：server 端偶发 close 1006 会让 agent 永久下线，
+// 后续任务全部"没有可用的Agent"失败。
 func (a *Agent) Start() error {
-	// 尝试连接到服务器
-	if err := a.connect(); err != nil {
-		return fmt.Errorf("failed to connect to server: %v", err)
+	backoff := 5 * time.Second
+	for {
+		if err := a.connect(); err != nil {
+			gologger.WithError(err).Errorf("连接服务器失败，%v 后重试", backoff)
+		} else {
+			backoff = 5 * time.Second // 连接成功后重置退避
+			// 启动各种协程（每次重连都需要新的发送协程）
+			go a.handleSend()
+			a.handleReceive() // 阻塞直至连接断开
+			gologger.Errorln("连接已断开，准备重连")
+		}
+
+		select {
+		case <-a.ctx.Done():
+			return nil
+		case <-time.After(backoff):
+		}
+		backoff *= 2
+		if backoff > 60*time.Second {
+			backoff = 60 * time.Second
+		}
 	}
-	// 启动各种协程
-	go a.handleSend()
-	a.handleReceive()
-	return nil
 }
 
 // Stop 停止Agent
@@ -140,9 +157,11 @@ func (a *Agent) connect() error {
 	conn.SetReadLimit(1024 * 1024 * 5)
 	a.conn = conn
 
-	// 设置ping处理器：收到ping消息后自动回复pong
+	// 设置ping处理器：收到ping消息后自动回复pong（写操作受 writeMu 保护）
 	a.conn.SetPingHandler(func(appData string) error {
 		gologger.Debugln("Received ping message, sending pong response", appData)
+		a.writeMu.Lock()
+		defer a.writeMu.Unlock()
 		return a.conn.WriteControl(websocket.PongMessage, []byte(""), time.Now().Add(time.Second*60))
 	})
 
@@ -187,6 +206,8 @@ func (a *Agent) sendMessage(msg interface{}) error {
 		return err
 	}
 
+	a.writeMu.Lock()
+	defer a.writeMu.Unlock()
 	return a.conn.WriteMessage(websocket.TextMessage, data)
 }
 
@@ -204,7 +225,8 @@ func (a *Agent) handleSend() {
 	}
 }
 
-// handleReceive 处理接收消息
+// handleReceive 处理接收消息。连接断开（ReadMessage 出错）时 return，
+// 由 Start 的重连循环负责恢复——不再把 conn 置 nil 后静默退出整个进程。
 func (a *Agent) handleReceive() {
 	for {
 		select {
@@ -212,12 +234,11 @@ func (a *Agent) handleReceive() {
 			return
 		default:
 			if a.conn == nil {
-				break
+				return
 			}
 			_, message, err := a.conn.ReadMessage()
 			if err != nil {
 				gologger.WithError(err).Errorln("Failed to read message")
-				a.conn = nil
 				return
 			}
 			gologger.Debugln("recv", string(message))
