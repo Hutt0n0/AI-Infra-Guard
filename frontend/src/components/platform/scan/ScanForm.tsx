@@ -67,6 +67,9 @@ export function ScanForm({
   const [selectedAgent, setSelectedAgent] = React.useState<string | undefined>();
   // Agent-Scan 技能子集：空数组 = 全量扫描（默认），选中部分则只跑所选
   const [selectedSkills, setSelectedSkills] = React.useState<string[]>([]);
+  // 体检评测目标：模型 API（默认）/ 被测 Agent（互斥，与旧 UI 语义一致）
+  const [redteamTargetType, setRedteamTargetType] = React.useState<'model' | 'agent'>('model');
+  const [selectedTargetAgent, setSelectedTargetAgent] = React.useState<string | undefined>();
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   // 切换类型时清空状态
@@ -77,6 +80,8 @@ export function ScanForm({
     setSelectedAttackMethods([]);
     setSelectedAgent(undefined);
     setSelectedSkills([]);
+    setRedteamTargetType('model');
+    setSelectedTargetAgent(undefined);
     setAttachmentFiles([]);
     setSubmitError(null);
   }, [service.id]);
@@ -96,7 +101,7 @@ export function ScanForm({
   }, []);
 
   React.useEffect(() => {
-    if (service.id !== 'Agent-Scan') return;
+    if (service.id !== 'Agent-Scan' && service.id !== 'Model-Redteam-Report') return;
     let cancelled = false;
     agentApi.getAgentNames().then(res => {
       if (!cancelled && res.status === 0) setAgentNames(res.data ?? []);
@@ -126,7 +131,9 @@ export function ScanForm({
     !submitting &&
     (needsContent ? (content.trim().length > 0 || attachmentFiles.length > 0) : true) &&
     (!showAgent || !!selectedAgent) &&
-    (!showModel || service.model === 'multi' ? true : true); // multi 模式允许空（后端可默认）
+    (!showModel || service.model === 'multi' ? true : true) && // multi 模式允许空（后端可默认）
+    // 体检选 Agent 目标时必须选择具体 Agent
+    (showEvaluations ? redteamTargetType !== 'agent' || !!selectedTargetAgent : true)
 
   const handleSubmit = () => {
     if (!canSubmit) {
@@ -149,7 +156,7 @@ export function ScanForm({
         selectedAttackMethods,
         selectedAgent,
         selectedSkills,
-        selectedTargetAgent: undefined,
+        selectedTargetAgent: redteamTargetType === 'agent' ? selectedTargetAgent : undefined,
       },
       attachmentFiles,
     });
@@ -221,6 +228,53 @@ export function ScanForm({
                 ))}
               </select>
             </FieldBox>
+          </div>
+        )}
+
+        {/* 评测目标（Model-Redteam-Report）：模型 API / 被测 Agent 互斥 */}
+        {showEvaluations && (
+          <div>
+            <FieldLabel>评测目标</FieldLabel>
+            <div className="flex items-center gap-2 mb-2">
+              {(['model', 'agent'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setRedteamTargetType(t)}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors',
+                    redteamTargetType === t ? 'text-white border-transparent' : 'bg-white text-plat-ink-2 border hover:bg-plat-surface-low'
+                  )}
+                  style={redteamTargetType === t ? { background: 'var(--brand)' } : { borderColor: 'var(--outline)' }}
+                >
+                  {t === 'model' ? '模型 API' : 'Agent'}
+                </button>
+              ))}
+            </div>
+            {redteamTargetType === 'agent' && (
+              <FieldBox>
+                <select
+                  value={selectedTargetAgent ?? ''}
+                  onChange={e => setSelectedTargetAgent(e.target.value || undefined)}
+                  className="flex-1 bg-transparent outline-none text-[13px] text-plat-ink"
+                >
+                  <option value="">选择被测 Agent…</option>
+                  {agentNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </FieldBox>
+            )}
+            {redteamTargetType === 'agent' && !selectedTargetAgent && (
+              <div className="text-[11px] mt-1" style={{ color: 'var(--st-crit-t)' }}>
+                请选择被测 Agent（在「规则库 → Agent 配置」或「节点与 Agent」页管理）
+              </div>
+            )}
+            {redteamTargetType === 'model' && !selectedModel && (
+              <div className="text-[11px] mt-1 text-plat-muted">
+                未选模型时将使用平台默认模型（与 AI 助手一致）
+              </div>
+            )}
           </div>
         )}
 
