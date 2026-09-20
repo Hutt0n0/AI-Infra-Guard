@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Swords, Check, ChevronRight, HelpCircle } from 'lucide-react';
 import { EvaluationItem } from '../../types';
 
@@ -234,9 +234,11 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
   }
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className='relative group attack-method-menu-container' ref={menuRef}>
+    // 自带 Provider：平台 ScanForm 等不经 ChatArea 全局 Provider 的调用方也能安全使用
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className='relative group attack-method-menu-container' ref={menuRef}>
           <Button
             size='sm'
             variant='ghost'
@@ -410,7 +412,8 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
       <TooltipContent>
         <p>{t('floatingInputArea.buttons.selectAttackMethod')}</p>
       </TooltipContent>
-    </Tooltip>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
