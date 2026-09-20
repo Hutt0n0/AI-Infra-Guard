@@ -187,6 +187,8 @@
 
 - **2026-09-20**：体检表单补评测目标入口（提交 6fd03e26）：ScanForm 新增「评测目标」块——模型 API / Agent 互斥切换（默认模型 API，与旧 UI 语义一致）；选 Agent 时渲染被测 Agent 下拉（/knowledge/agent/names，加载 effect 扩至体检共用）+ 必选校验 + 管理入口提示；selectedTargetAgent 仅在 Agent 模式下发 → params.target_agent_id → 后端 prompt_tasks 走路径B（target_agent 优先于 model_id）。Playwright 验证切换/下拉/校验全渲染，0 JS 错误。
 
+- **2026-09-20**：体检任务"蒸发"重大 bug 修复（提交 33c8db69）：根因链 = agent 未连接时 AddTask 预存 session（doing）后阻塞 100s 等 SSE → 超时 cleanupFailedTask **物理删除 DB 行** → 用户看到"运行中 0/0"→任务彻底消失→详情"任务不存在"。修复：①cleanupFailedTask 改为标记 error + content 写失败说明（agent 未连接请先启动），物理删除仅作为未落库时的兜底；②ScanForm 提交按钮显示"正在创建任务…最长约 100 秒"实时反馈。端到端复现验证：等待期列表可见（doing）→ 超时后 status=error + 详情 200 带说明 → 不再蒸发。另注：0/0 显示是 detail 的 plan 空数组所致，属失败任务的自然表现。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
