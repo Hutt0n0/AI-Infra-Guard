@@ -195,3 +195,5 @@
 2. **前端构建链**：改动前端需 `npx vite build --mode openSource` → `frontend/dist/*` 拷至 `common/websocket/static/` → 重编 server（embed），见记忆 aig-native-deployment
 3. **上游同步**：本地 dev 在 v4.6.2 之上已有私有提交，阶段 9 动 Go 后端时注意与上游 API 风格一致（Gin，`common/websocket/` 平铺注册）
 4. **已知既有问题**：`common/agent/tasks_test.go` 在未改动 HEAD 上即编译失败（undefined: Model/Token/BaseUrl），与本次重构无关，跑 `go test ./...` 时需排除或先修复
+
+- **2026-09-20**：日志中心 + 体检任务创建可靠性 overhaul（提交 74801af5）。①新页面 /logs：GET /api/v1/system/logs tail server/agent 日志，前端贴底跟随滚动 + 满高布局（ShellModeContext）。②体检任务 100% 失败三连根因：AddTask 死等前端 SSE 100s（NewScanPage 从不建 SSE → 表单创建必死且阻塞 100s）→ 删除等待、预存后立即分发；agent 端 params.model 期望数组但服务端单模型注入对象（上游 1aeccdd0 契约分歧）→ agent 端兼容双形状；agent 目标模式评分模型实际必填但表单标可选 → 必选校验。③TaskDetailPage 补 SSE 实时 + 轮询兜底（此前只手动刷新）。端到端验证：创建 0.035s 返回 → 分发 → 三步全绿 → done + 报告落库。
