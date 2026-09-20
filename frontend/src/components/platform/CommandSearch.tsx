@@ -63,7 +63,7 @@ export default function CommandSearch({
               <CommandItem
                 key={task.id}
                 value={`${task.title} ${task.id} ${task.type}`}
-                onSelect={() => run(`/tasks?sessionId=${task.id}`)}
+                onSelect={() => run(`/task/${task.id}`)}
               >
                 <span className="truncate">{task.title || task.id}</span>
                 <span className="ml-auto text-xs text-plat-muted">{task.type}</span>

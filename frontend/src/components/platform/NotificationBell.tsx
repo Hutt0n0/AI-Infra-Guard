@@ -113,11 +113,8 @@ export default function NotificationBell() {
       return next;
     });
     setOpen(false);
-    if (item.newStatus === 'completed') {
-      navigate(`/task/${item.taskId}`);
-    } else {
-      navigate(`/tasks?sessionId=${item.taskId}`);
-    }
+    // 统一详情页 — /tasks?sessionId= 旧深链已重定向至此
+    navigate(`/task/${item.taskId}`);
   };
 
   const fmtTime = (ts: number) => {
