@@ -411,7 +411,7 @@ export function ScanForm({
             style={{ background: 'var(--brand)', boxShadow: '0 6px 16px rgba(93,95,239,.32)' }}
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            发起扫描
+            {submitting ? '正在创建任务…（最长约 100 秒，请勿关闭页面）' : '发起扫描'}
           </button>
           {submitError && (
             <span className="text-xs" style={{ color: 'var(--st-crit-t)' }}>{submitError}</span>
