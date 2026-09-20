@@ -133,13 +133,18 @@ export function ScanForm({
     (!showAgent || !!selectedAgent) &&
     (!showModel || service.model === 'multi' ? true : true) && // multi 模式允许空（后端可默认）
     // 体检选 Agent 目标时必须选择具体 Agent
-    (showEvaluations ? redteamTargetType !== 'agent' || !!selectedTargetAgent : true)
+    (showEvaluations ? redteamTargetType !== 'agent' || !!selectedTargetAgent : true) &&
+    // 体检选 Agent 目标时评分模型必选（评分引擎必须用 LLM 打分，无默认可用）
+    (showEvalModel ? redteamTargetType !== 'agent' || !!selectedEvalModel : true)
 
   const handleSubmit = () => {
     if (!canSubmit) {
-      setSubmitError(needsContent && !content.trim() && attachmentFiles.length === 0
-        ? '请输入扫描目标或上传附件'
-        : '请完成必填项');
+      setSubmitError(
+        showEvalModel && redteamTargetType === 'agent' && !selectedEvalModel
+          ? 'Agent 目标模式下请选择评分模型'
+          : needsContent && !content.trim() && attachmentFiles.length === 0
+            ? '请输入扫描目标或上传附件'
+            : '请完成必填项');
       return;
     }
     setSubmitError(null);
@@ -278,10 +283,17 @@ export function ScanForm({
           </div>
         )}
 
-        {/* 评分模型 */}
+        {/* 评分模型（agent 目标模式下必选：评分引擎必须用 LLM 给结果打分，被测对象不是模型时无默认可用） */}
         {showEvalModel && (
           <div>
-            <FieldLabel>评分模型（可选）</FieldLabel>
+            <FieldLabel>
+              评分模型
+              {redteamTargetType === 'agent' ? (
+                <span style={{ color: 'var(--st-crit-t)' }}>（Agent 目标模式必选）</span>
+              ) : (
+                '（可选）'
+              )}
+            </FieldLabel>
             <FieldBox>
               <select
                 value={selectedEvalModel?.model_id ?? ''}
@@ -411,7 +423,7 @@ export function ScanForm({
             style={{ background: 'var(--brand)', boxShadow: '0 6px 16px rgba(93,95,239,.32)' }}
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {submitting ? '正在创建任务…（最长约 100 秒，请勿关闭页面）' : '发起扫描'}
+            {submitting ? '正在创建任务…' : '发起扫描'}
           </button>
           {submitError && (
             <span className="text-xs" style={{ color: 'var(--st-crit-t)' }}>{submitError}</span>

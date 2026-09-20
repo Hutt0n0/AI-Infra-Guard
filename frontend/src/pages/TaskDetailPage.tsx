@@ -18,7 +18,7 @@ import { TaskDetailPanel } from '../components/platform/TaskDetailPanel';
 import CollapsibleTaskPlan from '../components/CollapsibleTaskPlan';
 import { useTaskDetail } from '../hooks/useTaskDetail';
 import { useTaskDetailState } from '../hooks/useTaskDetailState';
-import { terminateTaskRequest, deleteTaskRequest } from '../lib/taskApi';
+import { terminateTaskRequest, deleteTaskRequest, openTaskSSE } from '../lib/taskApi';
 import type { LlmTrace } from '../components/detailPanel/ScanProgressConsole';
 import { cn } from '../lib/utils';
 import { ShellModeContext } from '../components/platform/PlatformShell';
@@ -191,6 +191,30 @@ export default function TaskDetailPage() {
   const [consoleStageFilter, setConsoleStageFilter] = React.useState<string | null>(null);
 
   const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
+
+  // 实时进度：对运行中任务建立 SSE（NewScanPage 表单创建的任务不经过 ChatArea，
+  // 此前没有任何通道建立 SSE）。任何进度事件到达即刷新详情（数据以 DB 重建为准）；
+  // SSE 断开时回退为 3s 轮询，保证刷新页面/分享链接打开同样能看到进度。
+  const isRunning = task?.status === 'running';
+  const [sseDown, setSseDown] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!sessionId || !isRunning) return;
+    setSseDown(false);
+    const close = openTaskSSE(sessionId, {
+      onEvent: (type) => {
+        if (type !== 'connected') refresh();
+      },
+      onError: () => setSseDown(true),
+    });
+    return close;
+  }, [sessionId, isRunning, refresh]);
+
+  React.useEffect(() => {
+    if (!sessionId || !isRunning || !sseDown) return;
+    const timer = setInterval(refresh, 3000);
+    return () => clearInterval(timer);
+  }, [sessionId, isRunning, sseDown, refresh]);
 
   const traceCount = task?.traces?.length ?? 0;
 

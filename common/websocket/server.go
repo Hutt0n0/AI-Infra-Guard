@@ -334,6 +334,8 @@ func RunWebServer(options *version.Options) {
 			system.POST("/update-data", HandleTriggerDataUpdate)
 			system.GET("/update-data", HandleGetUpdateStatus)
 			system.GET("/version", HandleVersionCheck)
+			// 平台日志中心（server/agent 端日志查看）
+			system.GET("/logs", HandleGetLogs)
 		}
 	}
 

@@ -31,6 +31,7 @@ export default function CommandSearch({
     { key: 'poisonDetect', to: '/poison-detect' },
     { key: 'knowledge', to: '/knowledge' },
     { key: 'agents', to: '/agents' },
+    { key: 'logs', to: '/logs' },
   ];
 
   const run = (to: string) => {

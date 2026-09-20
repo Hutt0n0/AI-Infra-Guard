@@ -1252,7 +1252,8 @@
       "skillScan": "Skill Scan",
       "mcpScan": "MCP Scan",
       "modelRedteamReport": "LLM Security Check",
-      "aiInfraScan": "AI Infra Scan"
+      "aiInfraScan": "AI Infra Scan",
+      "logs": "Logs"
     },
     "topbar": {
       "searchPlaceholder": "Search targets, CVEs, tasks…",
@@ -1521,6 +1522,20 @@
       "share": "Copy share link",
       "reportPage": "Report page",
       "openReportPage": "Open the shared report page"
+    },
+    "logs": {
+      "title": "Logs",
+      "pageSub": "Inspect server / agent runtime logs to diagnose task failures (agent not started, dispatch errors, etc.)",
+      "autoRefresh": "Auto refresh",
+      "refresh": "Refresh",
+      "filter": "Filter (sessionId / error…)",
+      "errorsOnly": "Errors only",
+      "loading": "Loading logs…",
+      "empty": "No matching log lines",
+      "end": "End of log",
+      "jumpToLatest": "Jump to latest",
+      "agentMissing": "agent has never started — scan tasks cannot be dispatched. Start with: AIG_SERVER=127.0.0.1:8088 ./bin/agent",
+      "serverMissing": "server log not generated yet"
     }
   }
 }

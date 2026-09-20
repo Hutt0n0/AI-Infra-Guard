@@ -18,6 +18,7 @@ const CRUMB_MAP: Record<string, { key: string; fallback: string; light: string }
   '/reports': { key: 'platform.nav.reports', fallback: '报告中心', light: 'Reports' },
   '/knowledge': { key: 'platform.nav.knowledge', fallback: '规则库', light: 'Rule Library' },
   '/agents': { key: 'platform.nav.agents', fallback: '节点与 Agent', light: 'Agents & Nodes' },
+  '/logs': { key: 'platform.logs.title', fallback: '日志中心', light: 'Logs' },
   '/help': { key: 'navigation.help', fallback: '帮助文档', light: 'Help' },
 };
 

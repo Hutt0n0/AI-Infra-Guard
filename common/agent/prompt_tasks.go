@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -79,7 +80,42 @@ func (m *ModelRedteamReport) Execute(ctx context.Context, request TaskRequest, c
 	}
 	var param params
 	if err := json.Unmarshal(request.Params, &param); err != nil {
-		return err
+		// 服务端单模型分支注入的 params.model 是对象而非数组（上游契约分歧：
+		// dispatchTask 对 string model_id 注入单个 ModelParams，对数组注入列表）。
+		// 先按数组解，失败再按对象解归一化为数组，避免整个任务反序列化失败。
+		var compat struct {
+			Model       json.RawMessage `json:"model"`
+			EvalModel   ModelParams     `json:"eval_model"`
+			TargetAgent string          `json:"target_agent"`
+			Datasets    json.RawMessage `json:"dataset"`
+			Prompt      string          `json:"prompt"`
+			Techniques  []string        `json:"techniques"`
+		}
+		if err2 := json.Unmarshal(request.Params, &compat); err2 != nil {
+			return err2
+		}
+		param.EvalModel = compat.EvalModel
+		param.TargetAgent = compat.TargetAgent
+		param.Prompt = compat.Prompt
+		param.Techniques = compat.Techniques
+		if len(compat.Datasets) > 0 {
+			if err2 := json.Unmarshal(compat.Datasets, &param.Datasets); err2 != nil {
+				return err2
+			}
+		}
+		if len(compat.Model) > 0 {
+			// 对象形式 → 单元素数组；数组形式 → 原样
+			trimmed := bytes.TrimLeft(compat.Model, " \t\n\r")
+			if len(trimmed) > 0 && trimmed[0] == '{' {
+				var one ModelParams
+				if err2 := json.Unmarshal(compat.Model, &one); err2 != nil {
+					return err2
+				}
+				param.Model = []ModelParams{one}
+			} else if err2 := json.Unmarshal(compat.Model, &param.Model); err2 != nil {
+				return err2
+			}
+		}
 	}
 	param.Prompt = request.Content
 	if param.Datasets.RandomSeed == 0 {
