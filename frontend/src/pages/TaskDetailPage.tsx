@@ -182,7 +182,7 @@ export default function TaskDetailPage() {
     setFullHeight(true);
     return () => setFullHeight(false);
   }, [setFullHeight]);
-  const { task, isLoading, error, refresh } = useTaskDetail(sessionId ?? null);
+  const { task, isLoading, error, refresh, silentRefresh } = useTaskDetail(sessionId ?? null);
   const detailState = useTaskDetailState();
   const [tab, setTab] = React.useState<TabKey>('console');
   const [modelSubTab, setModelSubTab] = React.useState<'scan' | 'eval'>('scan');
@@ -193,22 +193,52 @@ export default function TaskDetailPage() {
   const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
 
   // 实时进度：对运行中任务建立 SSE（NewScanPage 表单创建的任务不经过 ChatArea，
-  // 此前没有任何通道建立 SSE）。任何进度事件到达即刷新详情（数据以 DB 重建为准）；
+  // 此前没有任何通道建立 SSE）。事件不逐条刷新——LLM 驱动的扫描每秒可产生多条
+  // 事件，逐条全量 fetch 会把详情页刷成频闪。改为 trailing 节流：
+  // 事件只标记"有新内容"，每 2s 最多静默刷新一次（不打 loading 态）；
   // SSE 断开时回退为 3s 轮询，保证刷新页面/分享链接打开同样能看到进度。
   const isRunning = task?.status === 'running';
   const [sseDown, setSseDown] = React.useState(false);
+  // trailing 节流：dirty 标记 + 定时器，事件风暴中每 2s 消费一次
+  const dirtyRef = React.useRef(false);
+  const throttleTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const requestRefresh = React.useCallback(() => {
+    dirtyRef.current = true;
+    if (throttleTimerRef.current) return; // 已有消费循环在跑
+    throttleTimerRef.current = setInterval(() => {
+      if (!dirtyRef.current) return;
+      dirtyRef.current = false;
+      silentRefresh();
+    }, 2000);
+  }, [silentRefresh]);
+
+  // 卸载 / 任务结束后清理节流循环
+  React.useEffect(() => {
+    if (isRunning) return;
+    if (throttleTimerRef.current) {
+      clearInterval(throttleTimerRef.current);
+      throttleTimerRef.current = null;
+    }
+    dirtyRef.current = false;
+  }, [isRunning]);
+  React.useEffect(() => {
+    return () => {
+      if (throttleTimerRef.current) clearInterval(throttleTimerRef.current);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!sessionId || !isRunning) return;
     setSseDown(false);
     const close = openTaskSSE(sessionId, {
       onEvent: (type) => {
-        if (type !== 'connected') refresh();
+        if (type !== 'connected') requestRefresh();
       },
       onError: () => setSseDown(true),
     });
     return close;
-  }, [sessionId, isRunning, refresh]);
+  }, [sessionId, isRunning, requestRefresh]);
 
   React.useEffect(() => {
     if (!sessionId || !isRunning || !sseDown) return;
