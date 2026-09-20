@@ -197,3 +197,5 @@
 4. **已知既有问题**：`common/agent/tasks_test.go` 在未改动 HEAD 上即编译失败（undefined: Model/Token/BaseUrl），与本次重构无关，跑 `go test ./...` 时需排除或先修复
 
 - **2026-09-20**：日志中心 + 体检任务创建可靠性 overhaul（提交 74801af5）。①新页面 /logs：GET /api/v1/system/logs tail server/agent 日志，前端贴底跟随滚动 + 满高布局（ShellModeContext）。②体检任务 100% 失败三连根因：AddTask 死等前端 SSE 100s（NewScanPage 从不建 SSE → 表单创建必死且阻塞 100s）→ 删除等待、预存后立即分发；agent 端 params.model 期望数组但服务端单模型注入对象（上游 1aeccdd0 契约分歧）→ agent 端兼容双形状；agent 目标模式评分模型实际必填但表单标可选 → 必选校验。③TaskDetailPage 补 SSE 实时 + 轮询兜底（此前只手动刷新）。端到端验证：创建 0.035s 返回 → 分发 → 三步全绿 → done + 报告落库。
+
+- **2026-09-20（下午）**：全平台功能测试轮（提交 d228d85d）。API 冒烟 31 项 + 五类任务型能力端到端（AI-Infra-Scan done+报告、Agent-Scan done 评分 100、Skill-Scan/Mcp-Scan 链路通但 git clone 外网受限、体检 done）；知识库六组 CRUD 实测（创建/编辑/删除/格式校验/路径安全均正常）；UI 浏览器实测 Dashboard/任务中心/详情四 Tab/规则库六 Tab/节点 Agent/日志中心（贴底跟随滚动实测）/报告分享页/帮助页/命令面板/通知/设置弹窗。发现并修复三处前端 bug：①AppContext 挂载从未 loadTasks() → 任务中心恒显 0；②Dashboard/ScanTypePage/TaskCenterPage label 帮助函数不透传 i18n 插值参数 → KPI 显示 {{count}} 裸模板；③附带 mcp-scan 依赖 uv sync 补齐（loguru 缺失曾致 Mcp-Scan 必败）。残留已知项：LLM-Proxy-Detect 依赖 --api-checker-url 独立服务（部署有意禁用，计划文档在案）；git clone GitHub 外网不稳属环境限制。
