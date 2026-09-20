@@ -203,3 +203,5 @@
 - **2026-09-20（傍晚）**：体检任务再次全失败排查（提交 3356e76f）。根因：agent 进程已死——common/agent 读循环遇 close 1006 后置 conn=nil 即 return，无重连逻辑，进程退出，后续任务全部"没有可用的Agent"（错误原因已如实写入任务 content）。修复：Start() 重连循环（5s→60s 指数退避）+ writeMu 写锁（gorilla/websocket 禁止并发写，重连场景 register 消息与 server ping 撞车曾致 panic）。实测：杀 server → agent 自动退避重连 → 恢复后自动注册；体检任务端到端 done、零 panic。注：早前 15:54 的 agent 死亡与 server 端 ping 机制有关（每 96s ping、agent 60s read deadline），重连循环已能自愈。
 
 - **2026-09-20（晚）**：任务详情页运行中频闪修复（提交 f3cfda07）。三连根因：①SSE 每事件逐条全量 refresh（56 事件→52 次 21KB 拉取）；②refresh 走 load 置 isLoading 整页替换为 spinner；③首版静默刷新误用 assembleTaskFromDetail 返回对象（无 plan 字段）致 "e.plan is not iterable" 整页崩溃。修复：buildTask 共享构造 + silentRefresh（无 loading 态、内容未变保引用）+ SSE 事件 trailing 节流（dirty 标记 + 2s 消费窗口）。实测 56 事件 60s 仅 8 次请求、零闪烁零崩溃。教训：hook 内两条取数路径必须共用同一字段构造函数，否则部分字段静默丢失。
+
+- **2026-09-20（夜）**：任务中心详情统一化（提交 42f06ec7，用户明确"不要重复功能"）。删除 TaskDetailPane（244 行右侧栏详情实现，与统一详情页 /task/:sessionId 功能重复）：行点击直接 navigate 统一详情页；/tasks?sessionId= 旧深链在 TaskCenterPage 内重定向到 /task/:id（通知铃/命令面板/助手三入口同步改直跳），分享链接不失效。浏览器实测行点击/重定向/四 Tab 全通过。顺带清理 embed 静态资源 5 个历史 bundle。

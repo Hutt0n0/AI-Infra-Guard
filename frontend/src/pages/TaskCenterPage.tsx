@@ -1,11 +1,10 @@
 import * as React from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Search, Plus, Trash2, Download } from 'lucide-react';
 import { PageHeader, FilterChips, FilterRow, FilterSeparator } from '../components/platform/primitives';
 import { TaskTable } from '../components/platform/task/TaskTable';
 import type { TaskTableRow, TaskStatusFilter } from '../components/platform/task/TaskTable';
-import { TaskDetailPane } from '../components/platform/task/TaskDetailPane';
 import { useApp } from '../context/AppContext';
 import { deleteTaskRequest, fetchTaskSummaries } from '../lib/taskApi';
 import type { TaskSummary } from '../lib/taskApi';
@@ -40,6 +39,13 @@ export default function TaskCenterPage() {
   const statusFilter = (searchParams.get('status') as TaskStatusFilter) || 'all';
   const typeFilter = searchParams.get('type') || 'all';
   const selectedSessionId = searchParams.get('sessionId');
+
+  // 旧深链兼容：/tasks?sessionId=xxx（通知铃/命令面板/助手等入口与历史链接）
+  // 直接重定向到统一详情页 /task/:sessionId —— 详情只在统一详情页呈现，
+  // 不在任务中心内再维护第二套详情视图。
+  if (selectedSessionId) {
+    return <Navigate to={`/task/${selectedSessionId}`} replace />;
+  }
 
   const [statusDraft, setStatusDraft] = React.useState<TaskStatusFilter>(statusFilter);
   const [typeDraft, setTypeDraft] = React.useState<string>(typeFilter);
@@ -149,9 +155,9 @@ export default function TaskCenterPage() {
   };
 
   const selectSession = (sessionId: string | null) => {
-    const next = new URLSearchParams(searchParams);
-    if (sessionId) next.set('sessionId', sessionId); else next.delete('sessionId');
-    setSearchParams(next);
+    // 点击任务 → 直接跳转统一详情页（/task/:sessionId 四 Tab 视图），
+    // 不再使用本页右侧栏详情（此前与统一详情页功能重复，已移除）。
+    if (sessionId) navigate(`/task/${sessionId}`);
   };
 
   const handleDelete = async () => {
@@ -162,7 +168,6 @@ export default function TaskCenterPage() {
       if (result.status === 0) {
         actions.deleteTask(deleteTarget.sessionId);
         toast.success(label('platform.taskCenter.deleteSuccess', '任务已删除'));
-        if (selectedSessionId === deleteTarget.sessionId) selectSession(null);
         setDeleteTarget(null);
       } else {
         toast.error(result.message || label('platform.taskCenter.deleteFailed', '删除失败'));
@@ -260,7 +265,6 @@ export default function TaskCenterPage() {
         <div className="bg-card border rounded-plat shadow-plat-card overflow-hidden" style={{ borderColor: 'var(--outline)', borderRadius: 'var(--plat-radius)', boxShadow: 'var(--shadow-card)' }}>
           <TaskTable
             rows={pagedRows}
-            activeSessionId={selectedSessionId}
             onRowClick={row => selectSession(row.sessionId)}
             empty={label('platform.taskCenter.empty', '暂无任务')}
           />
@@ -304,16 +308,6 @@ export default function TaskCenterPage() {
           </DialogContent>
         </Dialog>
       </div>
-
-      {/* 详情右栏（55vw） */}
-      {selectedSessionId && (
-        <div className="shrink-0 h-full hidden xl:block" style={{ width: 'min(55vw, 900px)' }}>
-          <TaskDetailPane
-            sessionId={selectedSessionId}
-            onClose={() => selectSession(null)}
-          />
-        </div>
-      )}
     </div>
   );
 }

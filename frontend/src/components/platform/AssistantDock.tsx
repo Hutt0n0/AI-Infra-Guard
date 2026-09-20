@@ -99,7 +99,7 @@ export default function AssistantDock() {
               {currentTask && (
                 <button
                   type="button"
-                  onClick={() => navigate(`/tasks?sessionId=${currentTask.id}`)}
+                  onClick={() => navigate(`/task/${currentTask.id}`)}
                   className="inline-flex items-center gap-1 text-xs font-semibold cursor-pointer"
                   style={{ color: 'var(--brand-deep)' }}
                 >
