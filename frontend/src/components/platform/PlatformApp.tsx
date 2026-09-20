@@ -10,6 +10,7 @@ import AgentsPage from '../../pages/AgentsPage';
 import JailbreakPage from '../../pages/JailbreakPage';
 import ReportsPage from '../../pages/ReportsPage';
 import TaskDetailPage from '../../pages/TaskDetailPage';
+import LogsPage from '../../pages/LogsPage';
 import HelpDocumentPage from '../../pages/HelpDocumentPage';
 
 /**
@@ -35,6 +36,7 @@ export default function PlatformApp() {
           <Route path="jailbreak" element={<JailbreakPage />} />
           <Route path="knowledge" element={<RuleLibraryPage />} />
           <Route path="agents" element={<AgentsPage />} />
+          <Route path="logs" element={<LogsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

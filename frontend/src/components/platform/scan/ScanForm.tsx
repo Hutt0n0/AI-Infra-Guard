@@ -4,6 +4,7 @@ import { modelApi } from '../../../lib/modelApi';
 import { agentApi } from '../../../lib/agentApi';
 import { evaluationApi } from '../../../lib/evaluationApi';
 import AttackMethodSelector from '../../floatingInputArea/AttackMethodSelector';
+import { AGENT_SCAN_SKILLS } from '../../floatingInputArea/FloatingInputArea';
 import { shouldShowModelButton, shouldShowEvalModelButton } from '../../../utils/taskUtils';
 import { buildTaskParams } from '../../../lib/taskCreate';
 import { SectionCard } from '../primitives';
@@ -64,6 +65,11 @@ export function ScanForm({
   const [selectedEvalModel, setSelectedEvalModel] = React.useState<ModelItem | undefined>();
   const [selectedAttackMethods, setSelectedAttackMethods] = React.useState<string[]>([]);
   const [selectedAgent, setSelectedAgent] = React.useState<string | undefined>();
+  // Agent-Scan 技能子集：空数组 = 全量扫描（默认），选中部分则只跑所选
+  const [selectedSkills, setSelectedSkills] = React.useState<string[]>([]);
+  // 体检评测目标：模型 API（默认）/ 被测 Agent（互斥，与旧 UI 语义一致）
+  const [redteamTargetType, setRedteamTargetType] = React.useState<'model' | 'agent'>('model');
+  const [selectedTargetAgent, setSelectedTargetAgent] = React.useState<string | undefined>();
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   // 切换类型时清空状态
@@ -73,6 +79,9 @@ export function ScanForm({
     setSelectedEvalModel(undefined);
     setSelectedAttackMethods([]);
     setSelectedAgent(undefined);
+    setSelectedSkills([]);
+    setRedteamTargetType('model');
+    setSelectedTargetAgent(undefined);
     setAttachmentFiles([]);
     setSubmitError(null);
   }, [service.id]);
@@ -92,7 +101,7 @@ export function ScanForm({
   }, []);
 
   React.useEffect(() => {
-    if (service.id !== 'Agent-Scan') return;
+    if (service.id !== 'Agent-Scan' && service.id !== 'Model-Redteam-Report') return;
     let cancelled = false;
     agentApi.getAgentNames().then(res => {
       if (!cancelled && res.status === 0) setAgentNames(res.data ?? []);
@@ -122,13 +131,20 @@ export function ScanForm({
     !submitting &&
     (needsContent ? (content.trim().length > 0 || attachmentFiles.length > 0) : true) &&
     (!showAgent || !!selectedAgent) &&
-    (!showModel || service.model === 'multi' ? true : true); // multi 模式允许空（后端可默认）
+    (!showModel || service.model === 'multi' ? true : true) && // multi 模式允许空（后端可默认）
+    // 体检选 Agent 目标时必须选择具体 Agent
+    (showEvaluations ? redteamTargetType !== 'agent' || !!selectedTargetAgent : true) &&
+    // 体检选 Agent 目标时评分模型必选（评分引擎必须用 LLM 打分，无默认可用）
+    (showEvalModel ? redteamTargetType !== 'agent' || !!selectedEvalModel : true)
 
   const handleSubmit = () => {
     if (!canSubmit) {
-      setSubmitError(needsContent && !content.trim() && attachmentFiles.length === 0
-        ? '请输入扫描目标或上传附件'
-        : '请完成必填项');
+      setSubmitError(
+        showEvalModel && redteamTargetType === 'agent' && !selectedEvalModel
+          ? 'Agent 目标模式下请选择评分模型'
+          : needsContent && !content.trim() && attachmentFiles.length === 0
+            ? '请输入扫描目标或上传附件'
+            : '请完成必填项');
       return;
     }
     setSubmitError(null);
@@ -144,8 +160,8 @@ export function ScanForm({
         maxEvaluationCount: -1,
         selectedAttackMethods,
         selectedAgent,
-        selectedSkills: [],
-        selectedTargetAgent: undefined,
+        selectedSkills,
+        selectedTargetAgent: redteamTargetType === 'agent' ? selectedTargetAgent : undefined,
       },
       attachmentFiles,
     });
@@ -220,10 +236,64 @@ export function ScanForm({
           </div>
         )}
 
-        {/* 评分模型 */}
+        {/* 评测目标（Model-Redteam-Report）：模型 API / 被测 Agent 互斥 */}
+        {showEvaluations && (
+          <div>
+            <FieldLabel>评测目标</FieldLabel>
+            <div className="flex items-center gap-2 mb-2">
+              {(['model', 'agent'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setRedteamTargetType(t)}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors',
+                    redteamTargetType === t ? 'text-white border-transparent' : 'bg-white text-plat-ink-2 border hover:bg-plat-surface-low'
+                  )}
+                  style={redteamTargetType === t ? { background: 'var(--brand)' } : { borderColor: 'var(--outline)' }}
+                >
+                  {t === 'model' ? '模型 API' : 'Agent'}
+                </button>
+              ))}
+            </div>
+            {redteamTargetType === 'agent' && (
+              <FieldBox>
+                <select
+                  value={selectedTargetAgent ?? ''}
+                  onChange={e => setSelectedTargetAgent(e.target.value || undefined)}
+                  className="flex-1 bg-transparent outline-none text-[13px] text-plat-ink"
+                >
+                  <option value="">选择被测 Agent…</option>
+                  {agentNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </FieldBox>
+            )}
+            {redteamTargetType === 'agent' && !selectedTargetAgent && (
+              <div className="text-[11px] mt-1" style={{ color: 'var(--st-crit-t)' }}>
+                请选择被测 Agent（在「规则库 → Agent 配置」或「节点与 Agent」页管理）
+              </div>
+            )}
+            {redteamTargetType === 'model' && !selectedModel && (
+              <div className="text-[11px] mt-1 text-plat-muted">
+                未选模型时将使用平台默认模型（与 AI 助手一致）
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 评分模型（agent 目标模式下必选：评分引擎必须用 LLM 给结果打分，被测对象不是模型时无默认可用） */}
         {showEvalModel && (
           <div>
-            <FieldLabel>评分模型（可选）</FieldLabel>
+            <FieldLabel>
+              评分模型
+              {redteamTargetType === 'agent' ? (
+                <span style={{ color: 'var(--st-crit-t)' }}>（Agent 目标模式必选）</span>
+              ) : (
+                '（可选）'
+              )}
+            </FieldLabel>
             <FieldBox>
               <select
                 value={selectedEvalModel?.model_id ?? ''}
@@ -255,6 +325,51 @@ export function ScanForm({
                 ))}
               </select>
             </FieldBox>
+          </div>
+        )}
+
+        {/* 扫描类型 / 技能子集（Agent-Scan）——默认全量，选择后只跑所选 */}
+        {showAgent && (
+          <div>
+            <div className="flex items-center mb-1.5">
+              <FieldLabel>扫描类型（不选 = 全部 10 项）</FieldLabel>
+              <button
+                type="button"
+                onClick={() => setSelectedSkills([])}
+                className={cn(
+                  'ml-auto text-[11px] font-semibold rounded-full px-2.5 py-0.5 cursor-pointer transition-colors',
+                  selectedSkills.length === 0 ? 'text-white' : 'text-plat-ink-2 border hover:bg-plat-surface-low'
+                )}
+                style={
+                  selectedSkills.length === 0
+                    ? { background: 'var(--brand)' }
+                    : { borderColor: 'var(--outline)' }
+                }
+              >
+                全部
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {AGENT_SCAN_SKILLS.map(skill => {
+                const selected = selectedSkills.includes(skill.id);
+                return (
+                  <button
+                    key={skill.id}
+                    type="button"
+                    onClick={() => setSelectedSkills(prev =>
+                      prev.includes(skill.id) ? prev.filter(s => s !== skill.id) : [...prev, skill.id]
+                    )}
+                    className={cn(
+                      'rounded-full border px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors',
+                      selected ? 'text-white border-transparent' : 'bg-white text-plat-ink-2 hover:bg-plat-surface-low'
+                    )}
+                    style={selected ? { background: 'var(--brand)' } : { borderColor: 'var(--outline)' }}
+                  >
+                    {skill.zh}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -308,7 +423,7 @@ export function ScanForm({
             style={{ background: 'var(--brand)', boxShadow: '0 6px 16px rgba(93,95,239,.32)' }}
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            发起扫描
+            {submitting ? '正在创建任务…' : '发起扫描'}
           </button>
           {submitError && (
             <span className="text-xs" style={{ color: 'var(--st-crit-t)' }}>{submitError}</span>

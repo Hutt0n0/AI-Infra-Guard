@@ -129,7 +129,7 @@ export function assembleTaskFromDetail(taskData: TaskDetailRaw) {
   let planUpdate: any = null;
 
   // 1. 找 planUpdate 与 stepId 标题映射
-  for (const msg of taskData.messages) {
+  for (const msg of (taskData.messages ?? [])) {
     if (msg.type === 'planUpdate' && msg.event?.tasks) {
       planUpdate = msg;
     }
@@ -157,7 +157,7 @@ export function assembleTaskFromDetail(taskData: TaskDetailRaw) {
   }
 
   // 3. 遍历消息，归类到主步骤的 subSteps
-  for (const msg of taskData.messages) {
+  for (const msg of (taskData.messages ?? [])) {
     // toolUsed
     if (msg.type === 'toolUsed' && msg.event?.planStepId && Array.isArray(msg.event.tools)) {
       const step = stepIdMap[msg.event.planStepId];

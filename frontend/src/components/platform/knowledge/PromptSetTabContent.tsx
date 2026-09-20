@@ -65,7 +65,8 @@ export default function PromptSetTabContent() {
       const res = await fetch(API);
       const data = await res.json();
       if (data.status === 0) {
-        setRows(Array.isArray(data.data?.items) ? data.data.items : []);
+        // 过滤 null/无效项（后端 HandleList 对非匹配文件可能产出 null 条目）
+        setRows((Array.isArray(data.data?.items) ? data.data.items : []).filter((r: any) => r && typeof r === 'object' && r.id));
       } else {
         toast.error(data.message || label('platform.ruleLibrary.promptLoadFailed', '获取提示词集失败'));
       }

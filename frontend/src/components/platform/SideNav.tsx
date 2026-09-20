@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, ListChecks, ShieldCheck, FileBarChart2,
-  BookOpen, Bot, Settings, Radar, Store, FileSearch, AlertTriangle, Bug,
+  BookOpen, Bot, Settings, Radar, Store, FileSearch, AlertTriangle, Bug, ScrollText,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import SettingsDialog from '../SettingsDialog';
@@ -43,6 +43,7 @@ const NAV_ITEMS: NavItemDef[] = [
   { key: 'skillMarket', to: 'external:https://matrix.tencent.com/skill-market', icon: Store, section: 'capability' },
   { key: 'knowledge', to: '/knowledge', icon: BookOpen, section: 'knowledge' },
   { key: 'agents', to: '/agents', icon: Bot, section: 'system' },
+  { key: 'logs', to: '/logs', icon: ScrollText, section: 'system' },
   { key: 'settings', to: null, icon: Settings, section: 'system' },
 ];
 

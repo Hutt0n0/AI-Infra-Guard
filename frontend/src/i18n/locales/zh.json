@@ -1251,7 +1251,8 @@
       "skillScan": "Skill扫描",
       "mcpScan": "MCP扫描",
       "modelRedteamReport": "大模型安全体检",
-      "aiInfraScan": "AI基础设施扫描"
+      "aiInfraScan": "AI基础设施扫描",
+      "logs": "日志中心"
     },
     "topbar": {
       "searchPlaceholder": "搜索目标、CVE、任务…",
@@ -1284,9 +1285,12 @@
       "time30d": "近 30 天",
       "time90d": "近 90 天",
       "kpiScore": "综合安全评分",
+      "kpiSample": "{{count}} 个任务样本",
       "kpiRisks": "待处置风险",
+      "kpiSevRange": "严重 {{c}} · 高危 {{h}} · 中危 {{m}}",
       "kpiAssets": "覆盖 AI 资产",
       "kpiJailbreak": "越狱攻防通过率",
+      "kpiBaseTotal": "{{count}} 条测试",
       "trendTitle": "风险发现趋势",
       "trendSub": "按任务类型 · 扫描任务产出",
       "tableView": "表格视图",
@@ -1520,6 +1524,20 @@
       "share": "复制分享链接",
       "reportPage": "报告页",
       "openReportPage": "打开分享报告页"
+    },
+    "logs": {
+      "title": "日志中心",
+      "pageSub": "查看 Server / Agent 端运行日志，排查任务失败原因（如 agent 未启动、任务分发失败等）",
+      "autoRefresh": "自动刷新",
+      "refresh": "刷新",
+      "filter": "过滤关键字（sessionId / error…）",
+      "errorsOnly": "仅错误",
+      "loading": "加载日志…",
+      "empty": "没有匹配的日志行",
+      "end": "已到末尾",
+      "jumpToLatest": "回到最新",
+      "agentMissing": "agent 从未启动 — 扫描任务将无法分发。启动命令：AIG_SERVER=127.0.0.1:8088 ./bin/agent",
+      "serverMissing": "server 日志尚未生成"
     }
   }
 }

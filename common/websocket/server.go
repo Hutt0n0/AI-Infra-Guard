@@ -334,6 +334,8 @@ func RunWebServer(options *version.Options) {
 			system.POST("/update-data", HandleTriggerDataUpdate)
 			system.GET("/update-data", HandleGetUpdateStatus)
 			system.GET("/version", HandleVersionCheck)
+			// 平台日志中心（server/agent 端日志查看）
+			system.GET("/logs", HandleGetLogs)
 		}
 	}
 
@@ -376,7 +378,9 @@ func serveStaticFallback(c *gin.Context) {
 			c.String(http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
+		// index.html 永远不缓存：hash 资源更新后旧引用立即失效（避免浏览器启发式缓存旧入口）
 		c.Header("Content-Type", "text/html")
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 		c.Data(http.StatusOK, "text/html", assetData)
 		return
 	}
@@ -386,6 +390,12 @@ func serveStaticFallback(c *gin.Context) {
 		mimeType = "text/plain"
 	}
 	c.Header("Content-Type", mimeType)
+	// 带 hash 的静态资源可长缓存（内容变更即换文件名）
+	if strings.Contains(assetPath, "assets/") {
+		c.Header("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		c.Header("Cache-Control", "no-cache")
+	}
 	c.Data(http.StatusOK, mimeType, assetData)
 }
 

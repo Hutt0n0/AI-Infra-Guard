@@ -177,9 +177,27 @@
 
 - **2026-09-18**：修复任务详情页超出视口高度问题（提交 b492242a）：根因=平台壳主内容包装器无高度约束，详情页 h-full 失效、内容自然撑开导致双滚动条。方案=PlatformShell 新增 ShellModeContext，子路由可声明"满高壳"模式（main 切 overflow-hidden、包装器 h-full flex）；TaskDetailPage 挂载时声明、卸载还原（其他页面不受影响）；页内各 Tab 收紧为 flex-1 min-h-0 overflow-hidden，控制台 Tab 执行计划区最高 40% 自滚动。已部署 main-BrDoX7DK.js。
 
+- **2026-09-18**：新建扫描三问题修复（提交 efe3f66a）：①Agent扫描表单补「扫描类型」技能子集选择（10 项 chip + 全部按钮，空选=全量，走既有 params.skills → --skills 链路）；②发起扫描后立即跳 /task/:sessionId 统一详情页；③详情页"未正常渲染"根因=静态服务无 Cache-Control，浏览器启发式缓存旧 index.html 引用已清理的旧 hash bundle → 修复：index.html no-cache、hash 资源 immutable 一年缓存、其余 no-cache。Playwright zh-CN 实测：技能 chips 可交互、详情页 4 Tab 全渲染 0 JS 错误、缓存头 live 生效。
+
+- **2026-09-18**：用户复报两问题，根因定位修复（提交 1c291e18）：①"e.messages is not iterable"= Go GetTaskDetail 的 messageList 为 nil slice 序列化成 JSON null，刚创建无事件的任务必触发 → 后端 make(...,0) + 前端 3 处 for..of 兜底 ?? []；②"发起扫描没跳详情"= 跳转逻辑本就在 status===0 分支内，但首次提交的保存模板 window.prompt 模态弹窗先于 navigate 阻塞了跳转观感，且失败路径（agent 未连 SSE 超时）只有裸错误 toast → navigate 提前、模板询问移到跳转后、失败 toast 附 agent 连接指引。Playwright 复测：不存在任务→错误态不崩溃，真实任务 4 Tab 正常，iterable 错误消除。
+
+- **2026-09-20**：提示词集 Tab 崩溃修复（提交 1f1e7e78）：根因链 = ①Go filepath.WalkDir 对软链 root 用 Lstat 语义（data/prompt_collections 是指向主仓库的软链）→ root 被当文件处理 → loadFile 返回 (nil,nil)；②HandleList 无条件 append nil 且 nil slice 序列化为 {"items":[null]}；③前端 rowKey 读 null.id 崩。修复：后端跳过 nil 项 + make 空数组（惠及全部 4 类知识库 Tab）；前端过滤无效行；补建主仓库缺失的 data/prompt_collections 目录（软链此前悬空）。Playwright 验证 /knowledge?tab=prompts 零错误渲染。
+
+- **2026-09-20**：新建体检表单 Tooltip 崩溃修复：AttackMethodSelector 依赖调用方提供 TooltipProvider（旧 UI 在 ChatArea 内有全局 Provider，平台 ScanForm 没有）→ 组件自带 Provider 自包含化（旧路径双层 Provider 无害）。Playwright 验证体检/Agent 两类表单零 JS 错误。
+
+- **2026-09-20**：体检表单补评测目标入口（提交 6fd03e26）：ScanForm 新增「评测目标」块——模型 API / Agent 互斥切换（默认模型 API，与旧 UI 语义一致）；选 Agent 时渲染被测 Agent 下拉（/knowledge/agent/names，加载 effect 扩至体检共用）+ 必选校验 + 管理入口提示；selectedTargetAgent 仅在 Agent 模式下发 → params.target_agent_id → 后端 prompt_tasks 走路径B（target_agent 优先于 model_id）。Playwright 验证切换/下拉/校验全渲染，0 JS 错误。
+
+- **2026-09-20**：体检任务"蒸发"重大 bug 修复（提交 33c8db69）：根因链 = agent 未连接时 AddTask 预存 session（doing）后阻塞 100s 等 SSE → 超时 cleanupFailedTask **物理删除 DB 行** → 用户看到"运行中 0/0"→任务彻底消失→详情"任务不存在"。修复：①cleanupFailedTask 改为标记 error + content 写失败说明（agent 未连接请先启动），物理删除仅作为未落库时的兜底；②ScanForm 提交按钮显示"正在创建任务…最长约 100 秒"实时反馈。端到端复现验证：等待期列表可见（doing）→ 超时后 status=error + 详情 200 带说明 → 不再蒸发。另注：0/0 显示是 detail 的 plan 空数组所致，属失败任务的自然表现。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
 2. **前端构建链**：改动前端需 `npx vite build --mode openSource` → `frontend/dist/*` 拷至 `common/websocket/static/` → 重编 server（embed），见记忆 aig-native-deployment
 3. **上游同步**：本地 dev 在 v4.6.2 之上已有私有提交，阶段 9 动 Go 后端时注意与上游 API 风格一致（Gin，`common/websocket/` 平铺注册）
 4. **已知既有问题**：`common/agent/tasks_test.go` 在未改动 HEAD 上即编译失败（undefined: Model/Token/BaseUrl），与本次重构无关，跑 `go test ./...` 时需排除或先修复
+
+- **2026-09-20**：日志中心 + 体检任务创建可靠性 overhaul（提交 74801af5）。①新页面 /logs：GET /api/v1/system/logs tail server/agent 日志，前端贴底跟随滚动 + 满高布局（ShellModeContext）。②体检任务 100% 失败三连根因：AddTask 死等前端 SSE 100s（NewScanPage 从不建 SSE → 表单创建必死且阻塞 100s）→ 删除等待、预存后立即分发；agent 端 params.model 期望数组但服务端单模型注入对象（上游 1aeccdd0 契约分歧）→ agent 端兼容双形状；agent 目标模式评分模型实际必填但表单标可选 → 必选校验。③TaskDetailPage 补 SSE 实时 + 轮询兜底（此前只手动刷新）。端到端验证：创建 0.035s 返回 → 分发 → 三步全绿 → done + 报告落库。
+
+- **2026-09-20（下午）**：全平台功能测试轮（提交 d228d85d）。API 冒烟 31 项 + 五类任务型能力端到端（AI-Infra-Scan done+报告、Agent-Scan done 评分 100、Skill-Scan/Mcp-Scan 链路通但 git clone 外网受限、体检 done）；知识库六组 CRUD 实测（创建/编辑/删除/格式校验/路径安全均正常）；UI 浏览器实测 Dashboard/任务中心/详情四 Tab/规则库六 Tab/节点 Agent/日志中心（贴底跟随滚动实测）/报告分享页/帮助页/命令面板/通知/设置弹窗。发现并修复三处前端 bug：①AppContext 挂载从未 loadTasks() → 任务中心恒显 0；②Dashboard/ScanTypePage/TaskCenterPage label 帮助函数不透传 i18n 插值参数 → KPI 显示 {{count}} 裸模板；③附带 mcp-scan 依赖 uv sync 补齐（loguru 缺失曾致 Mcp-Scan 必败）。残留已知项：LLM-Proxy-Detect 依赖 --api-checker-url 独立服务（部署有意禁用，计划文档在案）；git clone GitHub 外网不稳属环境限制。
+
+- **2026-09-20（傍晚）**：体检任务再次全失败排查（提交 3356e76f）。根因：agent 进程已死——common/agent 读循环遇 close 1006 后置 conn=nil 即 return，无重连逻辑，进程退出，后续任务全部"没有可用的Agent"（错误原因已如实写入任务 content）。修复：Start() 重连循环（5s→60s 指数退避）+ writeMu 写锁（gorilla/websocket 禁止并发写，重连场景 register 消息与 server ping 撞车曾致 panic）。实测：杀 server → agent 自动退避重连 → 恢复后自动注册；体检任务端到端 done、零 panic。注：早前 15:54 的 agent 死亡与 server 端 ping 机制有关（每 96s ping、agent 60s read deadline），重连循环已能自愈。

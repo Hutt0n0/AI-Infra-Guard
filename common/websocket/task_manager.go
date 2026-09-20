@@ -119,33 +119,18 @@ func (tm *TaskManager) AddTask(req *TaskCreateRequest, traceID string) error {
 
 	log.Infof("任务预存成功: trace_id=%s, sessionId=%s", traceID, req.SessionID)
 
-	// 3. 等待SSE连接建立
-	timeout := 100 * time.Second
-	start := time.Now()
-	for time.Since(start) < timeout {
-		if tm.sseManager.HasConnection(req.SessionID) {
-			break // 连接已建立
-		}
-		time.Sleep(500 * time.Millisecond) // 每50ms检查一次
-	}
-
-	if !tm.sseManager.HasConnection(req.SessionID) {
-		// SSE连接超时，清理预存的任务
-		tm.cleanupFailedTask(req.SessionID, traceID)
-		log.Errorf("SSE连接建立超时: trace_id=%s, sessionId=%s, username=%s, timeout=%v", traceID, req.SessionID, req.Username, timeout)
-		return fmt.Errorf("SSE连接建立超时，请重试，sessionId: %s", req.SessionID)
-	}
-
-	// 4. 存储任务到内存（dispatchTask需要从内存中获取任务）
+	// 3. 立即分发任务（不等 SSE）。
+	// SSE 只是进度推送通道，事件均会经 StoreEvent 落库、详情接口可从 DB 重建，
+	// 前端何时建立 SSE 都不丢数据——因此不作为分发前置条件。
+	// （此前死等前端 SSE 100s：平台新扫描页不建 SSE，导致表单创建的任务 100% 超时失败。）
 	tm.mu.Lock()
 	tm.tasks[req.SessionID] = req
 	tm.mu.Unlock()
 
-	// 5. 尝试分发任务
 	err = tm.dispatchTask(req.SessionID, traceID)
 	if err != nil {
-		// 分发失败，清理内存和数据库中的预存内容
-		tm.cleanupFailedTask(req.SessionID, traceID)
+		// 分发失败，清理内存和数据库中的预存内容，并把具体原因交代给用户
+		tm.cleanupFailedTask(req.SessionID, traceID, err.Error())
 		log.Errorf("任务分发失败: trace_id=%s, sessionId=%s, error=%v", traceID, req.SessionID, err)
 		return fmt.Errorf("任务分发失败: %v", err)
 	}
@@ -227,8 +212,11 @@ func (tm *TaskManager) AddTaskApi(req *TaskCreateRequest) error {
 	return nil
 }
 
-// cleanupFailedTask 清理失败的任务（内存和数据库）
-func (tm *TaskManager) cleanupFailedTask(sessionId string, traceID string) {
+// cleanupFailedTask 清理失败的任务（内存）并把数据库记录标记为 error。
+// 不物理删除 DB 行：失败任务必须留在列表里向用户交代（此前删除导致
+// "任务运行中→突然消失→详情页提示任务不存在" 的诡异体验）。
+// reason 会写入 content，向用户交代具体失败原因。
+func (tm *TaskManager) cleanupFailedTask(sessionId string, traceID string, reason string) {
 	log.Infof("开始清理失败任务: trace_id=%s, sessionId=%s", traceID, sessionId)
 
 	// 清理内存中的任务
@@ -236,12 +224,23 @@ func (tm *TaskManager) cleanupFailedTask(sessionId string, traceID string) {
 	delete(tm.tasks, sessionId)
 	tm.mu.Unlock()
 
-	// 清理数据库中的预存任务
-	err := tm.taskStore.DeleteSession(sessionId)
-	if err != nil {
-		log.Errorf("清理数据库中的失败任务失败: trace_id=%s, sessionId=%s, error=%v", traceID, sessionId, err)
+	// 数据库记录标记为 error（保留可见性），同时附失败说明
+	if err := tm.taskStore.UpdateSessionStatus(sessionId, TaskStatusError); err != nil {
+		// 记录可能尚未落库（CreateSession 之前失败），此时删除内存态即可
+		log.Errorf("标记失败任务状态失败: trace_id=%s, sessionId=%s, error=%v", traceID, sessionId, err)
+		if delErr := tm.taskStore.DeleteSession(sessionId); delErr != nil {
+			log.Errorf("清理数据库中的失败任务失败: trace_id=%s, sessionId=%s, error=%v", traceID, sessionId, delErr)
+		}
 	} else {
-		log.Infof("失败任务清理完成: trace_id=%s, sessionId=%s", traceID, sessionId)
+		if reason == "" {
+			reason = "任务创建失败，请重试。"
+		}
+		if err := tm.taskStore.UpdateSession(sessionId, map[string]interface{}{
+			"content": "任务创建失败：" + reason,
+		}); err != nil {
+			log.Warnf("写入失败任务说明失败: trace_id=%s, sessionId=%s, error=%v", traceID, sessionId, err)
+		}
+		log.Infof("失败任务已标记为 error: trace_id=%s, sessionId=%s", traceID, sessionId)
 	}
 }
 
@@ -1504,8 +1503,8 @@ func (tm *TaskManager) GetTaskDetail(sessionId string, username string, traceID 
 		}
 	}
 
-	// 处理消息列表
-	var messageList []map[string]interface{}
+	// 处理消息列表（make 保证空消息序列化为 [] 而非 null——前端 for..of 迭代依赖）
+	messageList := make([]map[string]interface{}, 0)
 	for _, msg := range messages {
 		// 解析事件数据
 		var eventData map[string]interface{}

@@ -76,7 +76,8 @@ export default function TaskCenterPage() {
     return () => { cancelled = true; };
   }, [searchApplied]);
 
-  const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
+  const label = (key: string, fallback: string, opts?: Record<string, unknown>) =>
+    (ready ? t(key, fallback, opts) : fallback);
 
   // 后端扩展字段（阶段 9 buildTaskSummary/enrichTaskSummary）：riskCount/score/assignedAgent/progress
   // AppContext.tasks 由旧映射构建不含这些字段，直接消费 fetchTaskSummaries 的原始返回。

@@ -255,7 +255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const parsedMessages: any[] = [];
       let errorMessage: any = null;
       // Find error message from raw messages
-      for (const msg of taskData.messages) {
+      for (const msg of (taskData.messages ?? [])) {
         if (msg.type === 'error') {
           errorMessage = {
             id: uuidv4(),
@@ -539,6 +539,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
     });
   }, [state.tasks]);
+
+  // 挂载时加载任务列表 — 平台壳没有旧工作台的 TaskDetailPane 触发点，
+  // 缺这一步任务中心会永远显示空列表（API 有数据但 state.tasks 为空）
+  useEffect(() => {
+    loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Clean up the timer when the component unmounts
   useEffect(() => {
