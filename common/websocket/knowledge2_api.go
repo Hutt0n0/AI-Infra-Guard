@@ -37,7 +37,8 @@ import (
 
 func HandleList(root string, loadFile func(filePath string) (interface{}, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var allItems []interface{}
+		// make 保证 items 空时序列化为 [] 而非 null（前端迭代依赖）
+		allItems := make([]interface{}, 0)
 		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return nil // skip entry on error
@@ -46,6 +47,10 @@ func HandleList(root string, loadFile func(filePath string) (interface{}, error)
 				item, err := loadFile(path)
 				if err != nil {
 					return err
+				}
+				// loadFile 对非匹配文件返回 (nil, nil)：跳过，避免 items 里出现 null
+				if item == nil {
+					return nil
 				}
 				allItems = append(allItems, item)
 			}
