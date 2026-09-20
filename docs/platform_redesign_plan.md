@@ -181,6 +181,8 @@
 
 - **2026-09-18**：用户复报两问题，根因定位修复（提交 1c291e18）：①"e.messages is not iterable"= Go GetTaskDetail 的 messageList 为 nil slice 序列化成 JSON null，刚创建无事件的任务必触发 → 后端 make(...,0) + 前端 3 处 for..of 兜底 ?? []；②"发起扫描没跳详情"= 跳转逻辑本就在 status===0 分支内，但首次提交的保存模板 window.prompt 模态弹窗先于 navigate 阻塞了跳转观感，且失败路径（agent 未连 SSE 超时）只有裸错误 toast → navigate 提前、模板询问移到跳转后、失败 toast 附 agent 连接指引。Playwright 复测：不存在任务→错误态不崩溃，真实任务 4 Tab 正常，iterable 错误消除。
 
+- **2026-09-20**：提示词集 Tab 崩溃修复（提交 1f1e7e78）：根因链 = ①Go filepath.WalkDir 对软链 root 用 Lstat 语义（data/prompt_collections 是指向主仓库的软链）→ root 被当文件处理 → loadFile 返回 (nil,nil)；②HandleList 无条件 append nil 且 nil slice 序列化为 {"items":[null]}；③前端 rowKey 读 null.id 崩。修复：后端跳过 nil 项 + make 空数组（惠及全部 4 类知识库 Tab）；前端过滤无效行；补建主仓库缺失的 data/prompt_collections 目录（软链此前悬空）。Playwright 验证 /knowledge?tab=prompts 零错误渲染。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
