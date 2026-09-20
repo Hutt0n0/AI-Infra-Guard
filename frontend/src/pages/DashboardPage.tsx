@@ -40,7 +40,8 @@ export default function DashboardPage() {
 
   const { data, isLoading, error } = useDashboardData({ assetDomain, taskType, timeRange });
 
-  const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
+  const label = (key: string, fallback: string, opts?: Record<string, unknown>) =>
+    (ready ? t(key, fallback, opts) : fallback);
 
   return (
     <div>

@@ -43,7 +43,8 @@ export default function ScanTypePage() {
   const [statusDraft, setStatusDraft] = React.useState<string>('all');
   const [searchDraft, setSearchDraft] = React.useState('');
 
-  const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
+  const label = (key: string, fallback: string, opts?: Record<string, unknown>) =>
+    (ready ? t(key, fallback, opts) : fallback);
   const navLabel = (key: string, fallback: string) => (ready ? t(`platform.nav.${key}`, fallback) : fallback);
 
   const load = React.useCallback(() => {
