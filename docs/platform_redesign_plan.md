@@ -185,6 +185,8 @@
 
 - **2026-09-20**：新建体检表单 Tooltip 崩溃修复：AttackMethodSelector 依赖调用方提供 TooltipProvider（旧 UI 在 ChatArea 内有全局 Provider，平台 ScanForm 没有）→ 组件自带 Provider 自包含化（旧路径双层 Provider 无害）。Playwright 验证体检/Agent 两类表单零 JS 错误。
 
+- **2026-09-20**：体检表单补评测目标入口（提交 6fd03e26）：ScanForm 新增「评测目标」块——模型 API / Agent 互斥切换（默认模型 API，与旧 UI 语义一致）；选 Agent 时渲染被测 Agent 下拉（/knowledge/agent/names，加载 effect 扩至体检共用）+ 必选校验 + 管理入口提示；selectedTargetAgent 仅在 Agent 模式下发 → params.target_agent_id → 后端 prompt_tasks 走路径B（target_agent 优先于 model_id）。Playwright 验证切换/下拉/校验全渲染，0 JS 错误。
+
 ## 七、风险与约束备忘
 
 1. **助手保活**：任何触碰 ChatArea/AssistantDock 的改动必须保持"抽屉 CSS 开合、不条件渲染 ChatArea"
