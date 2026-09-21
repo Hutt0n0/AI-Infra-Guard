@@ -31,6 +31,8 @@ export interface ScanSelections {
   selectedSkills: string[];
   /** Agent 被测目标（Model-Redteam-Report 可选，与 selectedModel 互斥使用） */
   selectedTargetAgent?: string;
+  /** SSE 大模型 API 直连被测目标（表单直接填，server 端生成临时 sse target YAML） */
+  targetSse?: { url: string; model?: string; api_key?: string; label?: string };
 }
 
 /** MCP 服务配置的形状（取自 useMcpServices() 返回项的子集） */
@@ -145,6 +147,11 @@ export function buildTaskParams(
   // 体检 Agent 目标（Model-Redteam-Report；server 端解析 YAML，model 保持为空）
   if (taskType === 'Model-Redteam-Report' && s.selectedTargetAgent) {
     params.target_agent_id = s.selectedTargetAgent;
+  }
+
+  // 体检 SSE 大模型 API 直连（server 端生成临时 sse target YAML，复用 target_agent 链路）
+  if (taskType === 'Model-Redteam-Report' && s.targetSse?.url) {
+    params.target_sse = s.targetSse;
   }
 
   return params;

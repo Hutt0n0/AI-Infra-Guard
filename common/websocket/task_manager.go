@@ -389,6 +389,40 @@ func (tm *TaskManager) dispatchTask(sessionId string, traceID string) error {
 				enhancedParams["target_agent"] = string(agentData)
 			}
 		}
+		// 处理target_sse（被测目标为 SSE 流式大模型 API 直连）：表单只传
+		// url/model/api_key，server 端生成临时 sse target YAML，复用
+		// target_agent 链路（AgentTargetModel → AIProviderClient sse provider）
+		if targetSse, exists := task.Params["target_sse"].(map[string]interface{}); exists {
+			sseUrl, _ := targetSse["url"].(string)
+			sseModel, _ := targetSse["model"].(string)
+			sseApiKey, _ := targetSse["api_key"].(string)
+			sseLabel, _ := targetSse["label"].(string)
+			sseTimeout, _ := targetSse["timeout_ms"].(float64)
+			if sseUrl == "" {
+				return fmt.Errorf("SSE 大模型 API 目标缺少 url")
+			}
+			if sseLabel == "" {
+				sseLabel = "sse-direct"
+			}
+			timeoutLine := ""
+			if sseTimeout > 0 {
+				timeoutLine = fmt.Sprintf("\n      timeout_ms: %d", int(sseTimeout))
+			}
+			var sb strings.Builder
+			sb.WriteString("targets:\n")
+			sb.WriteString("  - id: sse\n    config:\n")
+			sb.WriteString(fmt.Sprintf("      label: %s\n", sseLabel))
+			sb.WriteString(fmt.Sprintf("      url: %s\n", sseUrl))
+			if sseModel != "" {
+				sb.WriteString(fmt.Sprintf("      model: %s\n", sseModel))
+			}
+			if sseApiKey != "" {
+				sb.WriteString(fmt.Sprintf("      apiKey: %s\n", sseApiKey))
+			}
+			sb.WriteString("      timeout_ms: 30000" + timeoutLine + "\n")
+			enhancedParams["target_agent"] = sb.String()
+			log.Infof("SSE直连被测目标已生成: trace_id=%s, sessionId=%s, url=%s, model=%s", traceID, sessionId, sseUrl, sseModel)
+		}
 	}
 
 	// 6. 构造任务分配消息
