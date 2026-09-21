@@ -478,13 +478,19 @@ func testAgentConnectivity(content string) (bool, string, error) {
 	tmpFile.Close()
 
 	// Run Python connectivity test script using uv
+	// 注意：RunCmd 把 stderr 合并进 stdout，uv 首次运行会输出
+	// "Building xxx" 等构建日志。只保留最后一个以 { 开头的行（结果 JSON），
+	// 拼接全部行会把构建日志混进 JSON 导致解析失败。
 	var lastLine string
 	err = utils.RunCmd(
 		agentScanDir,
 		uvBin,
 		[]string{"run", "test_client_connect.py", "--client_file", tmpFile.Name()},
 		func(line string) {
-			lastLine += line
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "{") {
+				lastLine = trimmed
+			}
 		},
 	)
 

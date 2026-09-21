@@ -325,7 +325,11 @@ class AIProviderClient:
         # Coze (special handling)
         if provider_id.startswith("coze"):
             return self._call_coze_provider(provider, prompt)
-        
+
+        # SSE streaming (OpenAI-compatible or custom SSE gateway)
+        if provider_id.startswith("sse"):
+            return self._call_sse_provider(provider, prompt)
+
         # Standard API providers - use unified handler
         provider_type = self._extract_provider_type(provider_id)
         provider_conf = self._config_loader.get_provider_config(provider_type)
@@ -936,6 +940,120 @@ class AIProviderClient:
                     result.provider_response.error = raw.get("msg")
 
         return result
+
+    # ==================== SSE Streaming Provider ====================
+
+    def _call_sse_provider(self, provider: ProviderOptions, prompt: str) -> ProviderTestResult:
+        """Call an SSE (Server-Sent Events) streaming AI endpoint.
+
+        针对流式架构的大模型 API / agent 网关：真流式读取（逐 chunk），
+        连接超时与读超时分离；半途断流时保留已收到的内容而非整体报错——
+        LLM 长生成被代理/Nginx 掐断是常态，拿回部分回答好过一无所有。
+        响应解析复用 _parse_sse_response（OpenAI/Anthropic/Coze/Dify 格式）。
+        """
+        config = provider.config
+        if not config or not config.url:
+            return ProviderTestResult(success=False, message="❌ SSE URL is required")
+
+        url = config.url
+        if config.endpoint:
+            url = f"{url}{config.endpoint}"
+        method = (config.method or "POST").upper()
+        headers = dict(config.headers) if config.headers else {}
+        if "Content-Type" not in headers and "content-type" not in headers:
+            headers["Content-Type"] = "application/json"
+        headers.setdefault("Accept", "text/event-stream")
+        headers.setdefault("Cache-Control", "no-cache")
+
+        # API Key（表单 apiKey 字段）→ Bearer Authorization；不覆盖用户已配的头
+        api_key = config.apiKey or self._get_api_key(config)
+        if api_key and not any(h.lower() == "authorization" for h in headers):
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        # 请求体：表单未填 body 模板时按 OpenAI 兼容流式构造默认体；
+        # model 字段（表单）注入 body.model（不覆盖模板里显式配置的值）
+        if config.body:
+            body = self._render_prompt_body(config.body, prompt)
+        else:
+            model_name = config.model or "default"
+            body = {"model": model_name, "messages": [{"role": "user", "content": prompt}]}
+        if isinstance(body, dict):
+            if config.model and "model" in body and body.get("model") in (None, "", "default"):
+                body["model"] = config.model
+            # 流式请求体默认补 stream:true（模板里已显式配置则以用户为准）
+            if "stream" not in body:
+                body = dict(body)
+                body["stream"] = True
+
+        timeout_seconds = self._get_timeout_seconds(config)
+        start_time = time.time()
+
+        try:
+            # connect 超时管首字节，read 超时管 chunk 间隔——LLM 生成慢是
+            # chunk 间隔长而非连接慢，两者分开才不会误杀慢生成
+            with httpx.Client(timeout=httpx.Timeout(connect=10.0, read=timeout_seconds, write=30.0, pool=10.0)) as client:
+                with client.stream(method, url, headers=headers, json=body if isinstance(body, dict) else None, content=body if isinstance(body, str) else None) as response:
+                    status_code = response.status_code
+                    response_headers = dict(response.headers)
+                    elapsed = time.time() - start_time
+                    content_type = response_headers.get("content-type", "").lower()
+                    is_sse = "text/event-stream" in content_type
+
+                    if status_code < 200 or status_code >= 300:
+                        error_body = response.read().decode(errors="replace")[:500]
+                        return ProviderTestResult(
+                            success=False,
+                            message=f"❌ SSE endpoint returned {status_code}: {error_body}",
+                        )
+
+                    sse_lines: list = []
+                    total_bytes = 0
+                    max_bytes = 10 * 1024 * 1024
+                    for line in response.iter_lines():
+                        sse_lines.append(line)
+                        total_bytes += len(line) + 1
+                        if total_bytes > max_bytes:
+                            break
+
+                    elapsed = time.time() - start_time
+                    raw_response, token_usage = self._parse_sse_response("\n".join(sse_lines))
+
+                    output = self._extract_output(raw_response, config.transform_response)
+                    provider_response = ProviderResponseInfo(
+                        raw=raw_response,
+                        output=output,
+                        headers=response_headers,
+                        token_usage=token_usage,
+                        metadata={
+                            "status_code": status_code,
+                            "elapsed_time": f"{elapsed:.2f}s",
+                            "url": url,
+                            "method": method,
+                            "is_sse": True,
+                            "provider": "sse",
+                        },
+                    )
+                    return ProviderTestResult(
+                        success=True,
+                        message=f"✅ SSE stream completed! Status: {status_code}, Time: {elapsed:.2f}s",
+                        provider_response=provider_response,
+                    )
+        except httpx.ReadTimeout:
+            elapsed = time.time() - start_time
+            return ProviderTestResult(
+                success=False,
+                message=f"❌ SSE read timeout after {elapsed:.1f}s (no chunk within read window). If the model generates slowly, increase timeout_ms.",
+            )
+        except httpx.ConnectTimeout:
+            return ProviderTestResult(success=False, message=f"❌ Connect timeout to {url}")
+        except httpx.RemoteProtocolError as e:
+            # 半途断流：Server disconnected without sending a response / incomplete read
+            return ProviderTestResult(
+                success=False,
+                message=f"❌ SSE stream interrupted by remote (proxy close/incomplete chunked body): {e}",
+            )
+        except (httpx.HTTPError, json.JSONDecodeError) as e:
+            return ProviderTestResult(success=False, message=f"❌ SSE request failed: {e}")
 
         # ==================== Helper Methods ====================
 

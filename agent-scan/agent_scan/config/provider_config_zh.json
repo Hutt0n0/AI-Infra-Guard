@@ -26,11 +26,26 @@
         "type": "select",
         "required": true,
         "options": [
-          { "label": "POST", "value": "POST" },
-          { "label": "GET", "value": "GET" },
-          { "label": "PUT", "value": "PUT" },
-          { "label": "PATCH", "value": "PATCH" },
-          { "label": "DELETE", "value": "DELETE" }
+          {
+            "label": "POST",
+            "value": "POST"
+          },
+          {
+            "label": "GET",
+            "value": "GET"
+          },
+          {
+            "label": "PUT",
+            "value": "PUT"
+          },
+          {
+            "label": "PATCH",
+            "value": "PATCH"
+          },
+          {
+            "label": "DELETE",
+            "value": "DELETE"
+          }
         ],
         "defaultValue": "POST",
         "description": "HTTP请求方法"
@@ -95,8 +110,14 @@
         "type": "select",
         "required": false,
         "options": [
-          { "label": "聊天消息", "value": "chat" },
-          { "label": "工作流", "value": "workflow" }
+          {
+            "label": "聊天消息",
+            "value": "chat"
+          },
+          {
+            "label": "工作流",
+            "value": "workflow"
+          }
         ],
         "defaultValue": "chat",
         "description": "聊天消息用于对话应用，工作流用于工作流执行"
@@ -175,8 +196,14 @@
         "type": "select",
         "required": false,
         "options": [
-          { "label": "中国 (api.coze.cn)", "value": "coze-cn" },
-          { "label": "国际 (api.coze.com)", "value": "coze-com" }
+          {
+            "label": "中国 (api.coze.cn)",
+            "value": "coze-cn"
+          },
+          {
+            "label": "国际 (api.coze.com)",
+            "value": "coze-com"
+          }
         ],
         "defaultValue": "coze-cn",
         "description": "选择Coze API区域"
@@ -231,6 +258,79 @@
         "step": 1000,
         "defaultValue": 120000,
         "description": "请求超时时间（毫秒，默认：120000ms = 2分钟）"
+      }
+    ]
+  },
+  "sse": {
+    "name": "SSE 大模型 API",
+    "icon": "/images/agents-icon/http.webp",
+    "description": "配置 SSE 流式架构的大模型 API（OpenAI 兼容流式接口 / 自定义 SSE 网关）",
+    "fields": [
+      {
+        "field": "label",
+        "label": "Agent名称",
+        "type": "text",
+        "required": true,
+        "placeholder": "为此Agent输入自定义名称（支持英文及数字）",
+        "description": "此Agent的描述名称"
+      },
+      {
+        "field": "url",
+        "label": "SSE 接口地址",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://api.example.com/v1/chat/completions",
+        "description": "SSE 流式接口完整 URL（OpenAI 兼容通常为 /v1/chat/completions）"
+      },
+      {
+        "field": "model",
+        "label": "模型名称",
+        "type": "text",
+        "required": false,
+        "placeholder": "gpt-4o-mini / deepseek-chat 等",
+        "description": "请求体 model 字段使用的模型名；留空则使用请求体模板中的 model"
+      },
+      {
+        "field": "apiKey",
+        "label": "API Key",
+        "type": "password",
+        "required": false,
+        "placeholder": "sk-...",
+        "description": "鉴权密钥，将以 Bearer <key> 注入 Authorization 头"
+      },
+      {
+        "field": "headers",
+        "label": "自定义请求头",
+        "type": "json",
+        "required": false,
+        "placeholder": "{\n  \"X-Custom\": \"value\"\n}",
+        "rows": 3,
+        "description": "附加 HTTP 请求头（Authorization 由 API Key 自动生成，无需重复配置）"
+      },
+      {
+        "field": "body",
+        "label": "请求体模板",
+        "type": "textarea",
+        "required": false,
+        "rows": 6,
+        "placeholder": "{\n  \"model\": \"your-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"{{prompt}}\"}]\n}",
+        "description": "JSON 请求体模板，{{prompt}} 为攻击提示词占位符；未显式配置 stream 字段时自动启用流式"
+      },
+      {
+        "field": "transform_response",
+        "label": "响应提取路径",
+        "type": "text",
+        "required": false,
+        "placeholder": "留空即可 — SSE 流会自动拼接为完整回答",
+        "description": "高级：从响应 JSON 提取回答的路径（如 choices.0.message.content）。SSE 流默认自动聚合，无需配置"
+      },
+      {
+        "field": "timeout_ms",
+        "label": "超时（毫秒）",
+        "type": "text",
+        "required": false,
+        "placeholder": "300000",
+        "description": "单个数据块之间的最长等待时间，长思考模型建议调大"
       }
     ]
   },

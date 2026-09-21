@@ -26,11 +26,26 @@
         "type": "select",
         "required": true,
         "options": [
-          { "label": "POST", "value": "POST" },
-          { "label": "GET", "value": "GET" },
-          { "label": "PUT", "value": "PUT" },
-          { "label": "PATCH", "value": "PATCH" },
-          { "label": "DELETE", "value": "DELETE" }
+          {
+            "label": "POST",
+            "value": "POST"
+          },
+          {
+            "label": "GET",
+            "value": "GET"
+          },
+          {
+            "label": "PUT",
+            "value": "PUT"
+          },
+          {
+            "label": "PATCH",
+            "value": "PATCH"
+          },
+          {
+            "label": "DELETE",
+            "value": "DELETE"
+          }
         ],
         "defaultValue": "POST",
         "description": "HTTP request method"
@@ -95,8 +110,14 @@
         "type": "select",
         "required": false,
         "options": [
-          { "label": "Chat Messages", "value": "chat" },
-          { "label": "Workflow", "value": "workflow" }
+          {
+            "label": "Chat Messages",
+            "value": "chat"
+          },
+          {
+            "label": "Workflow",
+            "value": "workflow"
+          }
         ],
         "defaultValue": "chat",
         "description": "Chat Messages for conversational apps, Workflow for workflow execution"
@@ -175,8 +196,14 @@
         "type": "select",
         "required": false,
         "options": [
-          { "label": "China (api.coze.cn)", "value": "coze-cn" },
-          { "label": "International (api.coze.com)", "value": "coze-com" }
+          {
+            "label": "China (api.coze.cn)",
+            "value": "coze-cn"
+          },
+          {
+            "label": "International (api.coze.com)",
+            "value": "coze-com"
+          }
         ],
         "defaultValue": "coze-cn",
         "description": "Select the Coze API region"
@@ -231,6 +258,79 @@
         "step": 1000,
         "defaultValue": 120000,
         "description": "Request timeout in milliseconds (default: 120000ms = 2 minutes)"
+      }
+    ]
+  },
+  "sse": {
+    "name": "SSE LLM API",
+    "icon": "/images/agents-icon/http.webp",
+    "description": "Configure an SSE streaming LLM API (OpenAI-compatible streaming / custom SSE gateway)",
+    "fields": [
+      {
+        "field": "label",
+        "label": "Agent Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "Custom name for this agent (letters/numbers)",
+        "description": "Display name of this agent"
+      },
+      {
+        "field": "url",
+        "label": "SSE Endpoint URL",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://api.example.com/v1/chat/completions",
+        "description": "Full URL of the SSE streaming endpoint (OpenAI-compatible: /v1/chat/completions)"
+      },
+      {
+        "field": "model",
+        "label": "Model Name",
+        "type": "text",
+        "required": false,
+        "placeholder": "gpt-4o-mini / deepseek-chat etc.",
+        "description": "Model name used in the request body; leave empty to use the model in the body template"
+      },
+      {
+        "field": "apiKey",
+        "label": "API Key",
+        "type": "password",
+        "required": false,
+        "placeholder": "sk-...",
+        "description": "Auth key, injected as Bearer <key> into the Authorization header"
+      },
+      {
+        "field": "headers",
+        "label": "Custom Headers",
+        "type": "json",
+        "required": false,
+        "placeholder": "{\n  \"X-Custom\": \"value\"\n}",
+        "rows": 3,
+        "description": "Extra HTTP headers (Authorization is auto-generated from API Key)"
+      },
+      {
+        "field": "body",
+        "label": "Request Body Template",
+        "type": "textarea",
+        "required": false,
+        "rows": 6,
+        "placeholder": "{\n  \"model\": \"your-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"{{prompt}}\"}]\n}}",
+        "description": "JSON body template; {{prompt}} is the attack prompt placeholder; streaming enabled automatically unless stream is set explicitly"
+      },
+      {
+        "field": "transform_response",
+        "label": "Response Extract Path",
+        "type": "text",
+        "required": false,
+        "placeholder": "Leave empty — SSE stream is auto-aggregated",
+        "description": "Advanced: path to extract the answer from response JSON. SSE streams are aggregated automatically by default"
+      },
+      {
+        "field": "timeout_ms",
+        "label": "Timeout (ms)",
+        "type": "text",
+        "required": false,
+        "placeholder": "300000",
+        "description": "Max wait between stream chunks; increase for slow reasoning models"
       }
     ]
   },
