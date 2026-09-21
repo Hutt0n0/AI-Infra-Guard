@@ -207,3 +207,5 @@
 - **2026-09-20（夜）**：任务中心详情统一化（提交 42f06ec7，用户明确"不要重复功能"）。删除 TaskDetailPane（244 行右侧栏详情实现，与统一详情页 /task/:sessionId 功能重复）：行点击直接 navigate 统一详情页；/tasks?sessionId= 旧深链在 TaskCenterPage 内重定向到 /task/:id（通知铃/命令面板/助手三入口同步改直跳），分享链接不失效。浏览器实测行点击/重定向/四 Tab 全通过。顺带清理 embed 静态资源 5 个历史 bundle。
 
 - **2026-09-21**：SSE 流式大模型 API 适配（提交 243ffa14）。新需求：平台缺少对 SSE 架构 agent/大模型 API 的对接。agent-scan adapter 新增 sse provider 类型（真流式读 + connect/read 超时分离 + 断流明确报错 + 自动补 stream:true + apiKey/model 注入），解析复用既有 _parse_sse_response（已支持 OpenAI/Anthropic/Coze/Dify 四种流式格式）。provider_config_zh/en.json 注册「SSE 大模型 API」表单类型；体检 Agent 目标复用同一链路（target YAML id:sse）。顺带修复 testAgentConnectivity 既有 bug：RunCmd stderr 合并 + 全量拼接导致 uv 构建日志混入 JSON。实测三种流场景 + 平台配置保存 + 体检端到端 done。
+
+- **2026-09-21（下午）**：体检评测目标三选项（提交 3efb394f，用户需求"SSE 受测目标应有 Agent 与大模型 API 两种选择"）。表单评测目标改为 模型 API / Agent / SSE 大模型 API 三选一；SSE 选项直接填 URL/模型/API Key → params.target_sse → dispatchTask 服务端生成临时 sse target YAML → 复用 target_agent 链路（AgentTargetModel → sse provider），无需先建 Agent 配置。canSubmit 校验：SSE 必填 URL，Agent/SSE 目标评分模型必选。实测 target_sse 体检任务端到端 done + 报告完整。

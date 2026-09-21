@@ -67,9 +67,13 @@ export function ScanForm({
   const [selectedAgent, setSelectedAgent] = React.useState<string | undefined>();
   // Agent-Scan 技能子集：空数组 = 全量扫描（默认），选中部分则只跑所选
   const [selectedSkills, setSelectedSkills] = React.useState<string[]>([]);
-  // 体检评测目标：模型 API（默认）/ 被测 Agent（互斥，与旧 UI 语义一致）
-  const [redteamTargetType, setRedteamTargetType] = React.useState<'model' | 'agent'>('model');
+  // 体检评测目标：模型 API（默认）/ 被测 Agent / SSE 大模型 API 直连（三选一互斥）
+  const [redteamTargetType, setRedteamTargetType] = React.useState<'model' | 'agent' | 'sse'>('model');
   const [selectedTargetAgent, setSelectedTargetAgent] = React.useState<string | undefined>();
+  // SSE 大模型 API 直连（表单直接填，不经 Agent 配置库）
+  const [sseUrl, setSseUrl] = React.useState('');
+  const [sseModel, setSseModel] = React.useState('');
+  const [sseApiKey, setSseApiKey] = React.useState('');
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   // 切换类型时清空状态
@@ -82,6 +86,9 @@ export function ScanForm({
     setSelectedSkills([]);
     setRedteamTargetType('model');
     setSelectedTargetAgent(undefined);
+    setSseUrl('');
+    setSseModel('');
+    setSseApiKey('');
     setAttachmentFiles([]);
     setSubmitError(null);
   }, [service.id]);
@@ -134,15 +141,19 @@ export function ScanForm({
     (!showModel || service.model === 'multi' ? true : true) && // multi 模式允许空（后端可默认）
     // 体检选 Agent 目标时必须选择具体 Agent
     (showEvaluations ? redteamTargetType !== 'agent' || !!selectedTargetAgent : true) &&
-    // 体检选 Agent 目标时评分模型必选（评分引擎必须用 LLM 打分，无默认可用）
-    (showEvalModel ? redteamTargetType !== 'agent' || !!selectedEvalModel : true)
+    // 体检选 SSE 直连目标时必须填接口地址
+    (showEvaluations ? redteamTargetType !== 'sse' || !!sseUrl.trim() : true) &&
+    // 体检选 Agent/SSE 目标时评分模型必选（评分引擎必须用 LLM 打分，无默认可用）
+    (showEvalModel ? redteamTargetType === 'model' || !!selectedEvalModel : true)
 
   const handleSubmit = () => {
     if (!canSubmit) {
       setSubmitError(
-        showEvalModel && redteamTargetType === 'agent' && !selectedEvalModel
-          ? 'Agent 目标模式下请选择评分模型'
-          : needsContent && !content.trim() && attachmentFiles.length === 0
+        showEvalModel && redteamTargetType !== 'model' && !selectedEvalModel
+          ? 'Agent / SSE 目标模式下请选择评分模型'
+          : showEvaluations && redteamTargetType === 'sse' && !sseUrl.trim()
+            ? '请填写 SSE 接口地址'
+            : needsContent && !content.trim() && attachmentFiles.length === 0
             ? '请输入扫描目标或上传附件'
             : '请完成必填项');
       return;
@@ -162,6 +173,10 @@ export function ScanForm({
         selectedAgent,
         selectedSkills,
         selectedTargetAgent: redteamTargetType === 'agent' ? selectedTargetAgent : undefined,
+        // SSE 大模型 API 直连（表单直接填，server 端生成临时 sse target YAML）
+        targetSse: redteamTargetType === 'sse'
+          ? { url: sseUrl.trim(), model: sseModel.trim(), api_key: sseApiKey.trim(), label: 'sse-direct' }
+          : undefined,
       },
       attachmentFiles,
     });
@@ -236,12 +251,12 @@ export function ScanForm({
           </div>
         )}
 
-        {/* 评测目标（Model-Redteam-Report）：模型 API / 被测 Agent 互斥 */}
+        {/* 评测目标（Model-Redteam-Report）：模型 API / 被测 Agent / SSE 大模型 API 直连 */}
         {showEvaluations && (
           <div>
             <FieldLabel>评测目标</FieldLabel>
             <div className="flex items-center gap-2 mb-2">
-              {(['model', 'agent'] as const).map(t => (
+              {(['model', 'agent', 'sse'] as const).map(t => (
                 <button
                   key={t}
                   type="button"
@@ -252,7 +267,7 @@ export function ScanForm({
                   )}
                   style={redteamTargetType === t ? { background: 'var(--brand)' } : { borderColor: 'var(--outline)' }}
                 >
-                  {t === 'model' ? '模型 API' : 'Agent'}
+                  {t === 'model' ? '模型 API' : t === 'agent' ? 'Agent' : 'SSE 大模型 API'}
                 </button>
               ))}
             </div>
@@ -273,6 +288,41 @@ export function ScanForm({
             {redteamTargetType === 'agent' && !selectedTargetAgent && (
               <div className="text-[11px] mt-1" style={{ color: 'var(--st-crit-t)' }}>
                 请选择被测 Agent（在「规则库 → Agent 配置」或「节点与 Agent」页管理）
+              </div>
+            )}
+            {redteamTargetType === 'sse' && (
+              <div className="flex flex-col gap-2">
+                <FieldBox>
+                  <input
+                    value={sseUrl}
+                    onChange={e => setSseUrl(e.target.value)}
+                    placeholder="SSE 接口地址，如 https://api.example.com/v1/chat/completions"
+                    className="flex-1 bg-transparent outline-none text-[13px] text-plat-ink placeholder:text-plat-muted"
+                  />
+                </FieldBox>
+                <div className="grid grid-cols-2 gap-2">
+                  <FieldBox>
+                    <input
+                      value={sseModel}
+                      onChange={e => setSseModel(e.target.value)}
+                      placeholder="模型名称（可选）"
+                      className="flex-1 bg-transparent outline-none text-[13px] text-plat-ink placeholder:text-plat-muted"
+                    />
+                  </FieldBox>
+                  <FieldBox>
+                    <input
+                      type="password"
+                      value={sseApiKey}
+                      onChange={e => setSseApiKey(e.target.value)}
+                      placeholder="API Key（可选）"
+                      className="flex-1 bg-transparent outline-none text-[13px] text-plat-ink placeholder:text-plat-muted"
+                    />
+                  </FieldBox>
+                </div>
+                <div className="text-[11px] text-plat-muted">
+                  以 SSE 流式方式直连大模型 API（OpenAI 兼容 chat/completions 流式接口）；
+                  请求体默认 stream:true，{sseModel.trim() ? `模型 ${sseModel.trim()}` : '未填模型名时由服务端默认'}。长思考模型建议后续在 Agent 配置中调大超时
+                </div>
               </div>
             )}
             {redteamTargetType === 'model' && !selectedModel && (
