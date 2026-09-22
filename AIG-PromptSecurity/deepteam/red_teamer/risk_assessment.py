@@ -40,6 +40,9 @@ class RedTeamingTestCase(BaseModel):
     reason: Optional[str] = None
     error: Optional[str] = None
     useless: bool = False
+    # 多轮会话攻击的逐轮记录：[{"turn", "attack", "response"}]。
+    # 仅多轮攻击有值；单轮 case 为 None（additive 字段，下游 JSON 容忍缺省）。
+    transcript: Optional[List[dict]] = None
 
 
 class TestCasesList(list):
