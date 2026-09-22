@@ -342,26 +342,34 @@ Direct translation without separators"""
                             step_id="2",
                         )
 
-                        try:
-                            target_output = model_callback(
-                                simulated_attack.input
-                            )
+                        # 多轮会话攻击：直接取 enhance 期会话内末轮响应（同 async 分支）
+                        transcript = getattr(simulated_attack, "transcript", None)
+                        if getattr(simulated_attack, "multi_turn", False) and transcript:
+                            target_output = transcript[-1].get("response") or ""
                             if target_output == "":
                                 raise ValueError("The response is none")
+                            red_teaming_test_case.transcript = transcript
+                        else:
+                            try:
+                                target_output = model_callback(
+                                    simulated_attack.input
+                                )
+                                if target_output == "":
+                                    raise ValueError("The response is none")
+                            except Exception as e:
+                                logger.exception(e)
+                                if ignore_errors:
+                                    red_teaming_test_case.error = (
+                                        "Error generating output from target LLM"
+                                    )
+                                    red_teaming_test_case.reason = logger.translated_msg("The model has no output, which could be due to rate limiting or API security blocking.")
+                                    red_teaming_test_cases.append(
+                                        red_teaming_test_case
+                                    )
+                                    continue
+                                else:
+                                    raise
                             red_teaming_test_case.actual_output = target_output
-                        except Exception as e:
-                            logger.exception(e)
-                            if ignore_errors:
-                                red_teaming_test_case.error = (
-                                    "Error generating output from target LLM"
-                                )
-                                red_teaming_test_case.reason = logger.translated_msg("The model has no output, which could be due to rate limiting or API security blocking.")
-                                red_teaming_test_cases.append(
-                                    red_teaming_test_case
-                                )
-                                continue
-                            else:
-                                raise
 
                         test_case = LLMTestCase(
                             input=simulated_attack.input,
@@ -564,21 +572,31 @@ Direct translation without separators"""
                 turn=1,
                 step_id="2",
             )
-            try:
-                actual_output = await model_callback(simulated_attack.input)
+            # 多轮会话攻击：enhance 阶段已在同一会话内交互 N 轮，末轮响应即
+            # 评估对象——直接取用，避免冷启动重发末轮（目标无上下文会大概率
+            # 拒答，导致多轮突破被误判为 Safe）。transcript 附加到测试用例。
+            transcript = getattr(simulated_attack, "transcript", None)
+            if getattr(simulated_attack, "multi_turn", False) and transcript:
+                actual_output = transcript[-1].get("response") or ""
                 if actual_output == "":
                     raise ValueError("The response is none")
+                red_teaming_test_case.transcript = transcript
+            else:
+                try:
+                    actual_output = await model_callback(simulated_attack.input)
+                    if actual_output == "":
+                        raise ValueError("The response is none")
+                except Exception as e:
+                    logger.exception(e)
+                    if ignore_errors:
+                        red_teaming_test_case.error = (
+                            "Error generating output from target LLM"
+                        )
+                        red_teaming_test_case.reason = logger.translated_msg("The model has no output, which could be due to rate limiting or API security blocking.")
+                        return red_teaming_test_case
+                    else:
+                        raise
                 red_teaming_test_case.actual_output = actual_output
-            except Exception as e:
-                logger.exception(e)
-                if ignore_errors:
-                    red_teaming_test_case.error = (
-                        "Error generating output from target LLM"
-                    )
-                    red_teaming_test_case.reason = logger.translated_msg("The model has no output, which could be due to rate limiting or API security blocking.")
-                    return red_teaming_test_case
-                else:
-                    raise
 
             test_case = LLMTestCase(
                 input=simulated_attack.input,
@@ -1194,6 +1212,15 @@ Direct translation without separators"""
                 "reason": case.reason,
                 "error": case.error
             }
+            # 多轮会话攻击：附加轮数与逐轮记录（additive 字段，下游 JSON 容忍缺省）
+            transcript = getattr(case, "transcript", None)
+            if transcript:
+                result["turns"] = len(transcript)
+                result["transcript"] = [
+                    {**turn, "attack": self._translate_text(turn.get("attack")),
+                     "response": self._translate_text(turn.get("response"))}
+                    for turn in transcript
+                ]
             results.append(result)
         df = pd.DataFrame(results)
         attachment_path = f"logs/attachment_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}_{uuid.uuid4().hex[:8]}.csv"

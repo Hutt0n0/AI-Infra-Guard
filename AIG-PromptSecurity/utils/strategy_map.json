@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "version": "0.0.3",
-    "createdAt": "2025-09-12"
+    "version": "0.0.4",
+    "createdAt": "2026-09-22"
   },
   "globalParameters": {
     "defaultStrategies": [
@@ -525,6 +525,30 @@
             "id": "SystemOverride",
             "type": "System Override",
             "typeCn": "系统覆盖"
+          }
+        ]
+      },
+      {
+        "id": "MultiTurn",
+        "type": "multi_turn",
+        "typeCn": "多轮迭代攻击",
+        "description": "Multi-turn in-session iterative attacks: against a fixed case, iteratively vary the attack posture within the same conversation context until the target breaks.",
+        "descriptionCn": "多轮迭代攻击策略：在目标同一会话上下文内，针对固定 case 逐轮变换攻击姿势直至突破（会话多轮）。每 case 耗时约为单轮攻击的 5-10 倍，建议搭配少量 case 精测。",
+        "methods": [
+          {
+            "id": "CrescendoJailbreaking",
+            "type": "Crescendo Jailbreaking",
+            "typeCn": "渐升多轮（含回退重试）"
+          },
+          {
+            "id": "LinearJailbreaking",
+            "type": "Linear Jailbreaking",
+            "typeCn": "线性多轮迭代"
+          },
+          {
+            "id": "PAIRJailbreaking",
+            "type": "PAIR Jailbreaking",
+            "typeCn": "PAIR 对抗迭代"
           }
         ]
       }

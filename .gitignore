@@ -39,8 +39,10 @@ common/utils/chromium/screenshot.png
 # Agent runtime configs: data/agents/<username>/<name>.yaml embeds real cookies
 # and tokens of the platforms under test (e.g. JD sdtoken). Only keep the
 # directory placeholder.
-data/agents/*/
-!data/agents/.gitkeep
+# 注：worktree/native 部署会把 data/agents、data/prompt_collections 整目录软链到
+# 运行时路径——软链本身也是部署产物，不入库。
+data/agents
+data/prompt_collections
 
 # Local databases, uploads and runtime logs (may contain scan payloads,
 # evaluation reports and agent responses with sensitive content)

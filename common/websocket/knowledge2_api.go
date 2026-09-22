@@ -39,6 +39,12 @@ func HandleList(root string, loadFile func(filePath string) (interface{}, error)
 	return func(c *gin.Context) {
 		// make 保证 items 空时序列化为 [] 而非 null（前端迭代依赖）
 		allItems := make([]interface{}, 0)
+		// filepath.WalkDir 对根目录用 Lstat 语义：root 是符号链接时会被当普通
+		// 文件条目直接跳过，导致整个目录列出为空（worktree 部署 data/ 为软链）。
+		// 先解析软链到真实路径再遍历。
+		if resolved, err := filepath.EvalSymlinks(root); err == nil {
+			root = resolved
+		}
 		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return nil // skip entry on error

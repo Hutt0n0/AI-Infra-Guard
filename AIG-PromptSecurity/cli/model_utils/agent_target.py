@@ -27,10 +27,23 @@ so a single agent definition can serve both modules.
 """
 
 import asyncio
+import json
 import os
 import sys
+import threading
 
 from cli.model_utils.base import BaseLLM
+
+
+class _AgentSession:
+    """一个 case 的多轮会话状态：本地键 → 上游会话 ID（由代理经响应头回传）。"""
+
+    __slots__ = ("session_id", "conversation_id", "turns")
+
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        self.conversation_id = ""
+        self.turns = 0
 
 
 class AgentTargetModel(BaseLLM):
@@ -61,6 +74,10 @@ class AgentTargetModel(BaseLLM):
             api_key="",
             max_concurrent=max_concurrent,
         )
+        # 多轮会话注册表：session_id（SessionScope 生成）→ 上游会话状态。
+        # _call_agent 经 asyncio.to_thread 执行，需线程锁保护。
+        self._sessions: dict = {}
+        self._sessions_lock = threading.Lock()
         self.load_model()
 
     def _get_client_and_provider(self):
@@ -103,14 +120,78 @@ class AgentTargetModel(BaseLLM):
             self._emit_connection_trace(False, "", str(e))
             return False, str(e)
 
-    def _call_agent(self, prompt: str) -> str:
-        """One synchronous provider call with bounded retries."""
+    # ------------------------------------------------------------------
+    # Session registry（多轮会话承载）
+    # ------------------------------------------------------------------
+    def open_session(self) -> str:
+        """开一个本地会话（不触发上游调用；上游会话随首次带 session 的请求建立）。"""
+        from uuid import uuid4
+
+        sid = uuid4().hex
+        with self._sessions_lock:
+            self._sessions[sid] = _AgentSession(sid)
+        return sid
+
+    def close_session(self, session_id: str):
+        """评估结束驱逐会话，防 long-run 任务累积（并发数即活跃会话数上限）。"""
+        if not session_id:
+            return
+        with self._sessions_lock:
+            self._sessions.pop(session_id, None)
+
+    def _supports_session(self) -> bool:
+        """provider body 含 {{session_id}} 占位符即视为支持会话；
+        否则静默退化为逐轮独立调用（与历史行为一致）。"""
+        try:
+            _, provider = self._get_client_and_provider()
+            body = getattr(provider.config, "body", None)
+            return isinstance(body, str) and "{{session_id}}" in body
+        except Exception:
+            return False
+
+    def _call_agent(self, prompt: str, session_id: str = None) -> str:
+        """One synchronous provider call with bounded retries.
+
+        带 session_id 时：将上游会话 ID 注入 body 的 {{session_id}} 占位符，
+        并从响应头 X-Session-Id 回读上游会话（上游重置时自愈更新）。
+        """
+        sess = None
+        if session_id:
+            with self._sessions_lock:
+                sess = self._sessions.get(session_id)
+            if sess is None:
+                # SessionScope 先 open_session；防御未登记的键：现场补登记
+                sess = _AgentSession(session_id)
+                with self._sessions_lock:
+                    self._sessions[session_id] = sess
+
         last_error = ""
         for attempt in range(self.max_trial):
             try:
                 client, provider = self._get_client_and_provider()
-                result = client.call_provider(provider, prompt)
+                call_provider_obj = provider
+                if sess is not None and self._supports_session():
+                    # 只替换会话占位符；{{prompt}} 仍交 adapter 渲染
+                    #（避免自己处理 JSON 转义）
+                    call_provider_obj = provider.model_copy(deep=True)
+                    call_provider_obj.config.body = call_provider_obj.config.body.replace(
+                        "{{session_id}}",
+                        json.dumps(sess.conversation_id)[1:-1],
+                    )
+                result = client.call_provider(call_provider_obj, prompt)
                 if result.success and result.provider_response:
+                    # 回读上游会话 ID（代理经 X-Session-Id 响应头返回）
+                    headers = result.provider_response.headers or {}
+                    new_conv = None
+                    for k, v in headers.items():
+                        if k.lower() == "x-session-id":
+                            new_conv = v
+                            break
+                    if sess is not None and new_conv:
+                        sess.conversation_id = str(new_conv)
+                    if new_conv and sess is not None:
+                        sess.turns += 1
+
                     output = result.provider_response.output
                     if isinstance(output, str) and output:
                         return output
@@ -142,24 +223,28 @@ class AgentTargetModel(BaseLLM):
 
         The red-team engine exchanges flat attack prompts, so multi-turn
         ``messages`` payloads are collapsed to their final user turn.
+        session_id kwarg（SessionScope 注入）路由到同一上游会话；不传时
+        行为与历史版本完全一致。
         """
         text = self._extract_prompt(prompt, messages)
         if text is None:
             raise ValueError("prompt and messages cannot both be empty")
-        return self._call_agent(text)
+        return self._call_agent(text, session_id=kwargs.get("session_id"))
 
     async def a_generate(self, prompt: str = None, messages: list = None, *args, **kwargs) -> str:
         """Async generation: run the blocking provider call in a worker thread.
 
         The agent-scan SDK is synchronous (requests-based); concurrency is
         bounded by the inherited semaphore, mirroring Agent-Scan's own
-        dialogue concurrency cap.
+        dialogue concurrency cap. session_id kwarg 同步路径语义一致。
         """
         text = self._extract_prompt(prompt, messages)
         if text is None:
             raise ValueError("prompt and messages cannot both be empty")
         async with self.semaphore:
-            return await asyncio.to_thread(self._call_agent, text)
+            return await asyncio.to_thread(
+                self._call_agent, text, kwargs.get("session_id")
+            )
 
     @staticmethod
     def _extract_prompt(prompt: str, messages) -> "str | None":

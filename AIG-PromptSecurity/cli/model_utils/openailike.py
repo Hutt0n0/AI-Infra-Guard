@@ -17,22 +17,28 @@
 # documentation or user interface, as detailed in the NOTICE file.
 
 import time
+import threading
 import asyncio
+import httpx
 from openai import OpenAI, AsyncOpenAI
 from .base import BaseLLM
 
 class OpenaiAlikeModel(BaseLLM):
     """自定义模型，用于支持OpenAI API Alike Model"""
-    max_trial = 3 
+    max_trial = 3
     base_wait_seconds = 0.5
+    # 显式超时：connect 管建连，read 管等响应。SDK 默认 read=600s 且无外部
+    # 整体超时，上游半死（连接在但不回包）时单次调用可挂 10 分钟 × 3 次重试，
+    # 报告生成阶段会被整体卡死且无任何错误上抛（任务曾因此在"生成报告"卡 45+ 分钟）。
+    request_timeout = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
 
     def __init__(self, model_name: str, base_url: str, api_key: str, max_concurrent: int, *args, **kwargs):
         super().__init__(model_name, base_url, api_key, max_concurrent, *args, **kwargs)
         self.load_model()
-    
+
     def load_model(self):
-        self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
-        self.async_client = AsyncOpenAI(base_url=self.base_url, api_key=self.api_key)
+        self.client = OpenAI(base_url=self.base_url, api_key=self.api_key, timeout=self.request_timeout)
+        self.async_client = AsyncOpenAI(base_url=self.base_url, api_key=self.api_key, timeout=self.request_timeout)
         self.default_params = {
             "reasoning_effort": "low",
             "frequency_penalty": 1.0,
@@ -73,31 +79,51 @@ class OpenaiAlikeModel(BaseLLM):
         self._emit_connection_trace(False, "", last_error)
         return False, last_error
 
+    # 同步调用整体截止：报告生成阶段（翻译等）曾出现主线程 sock_recv 无限挂起
+    # （httpx read timeout 未能唤醒的半开连接场景），单次调用最多 3 次重试会把
+    # 任务整体拖死。用 worker 线程 + join 强制在 sync_timeout 内返回——
+    # 调用方（_translate_text 等）对空串已有回退逻辑，不会中断报告生成。
+    sync_timeout = 180.0
+
     def generate(self, prompt: str = None, messages: list = None) -> str:
+        result: dict = {"content": ""}
+
+        def _worker():
+            result["content"] = self._generate_once(prompt, messages)
+
         for i in range(self.max_trial):
-            try:
-                if prompt:
-                    _messages = [{"role": "user", "content": prompt}]
-                elif messages:
-                    _messages = messages
-                else:
-                    raise ValueError("prompt and messages cannot both be empty")
-                
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=_messages,
-                    **self.default_params
-                )
-                content = response.choices[0].message.content
-                if not isinstance(content, str):
-                    raise ValueError("The response is not a string")
-                elif not content:
-                    raise ValueError("The response is empty")
-                return content
-            except Exception as e:
-                wait_time = self.base_wait_seconds * (2 ** i)
-                time.sleep(wait_time)
+            t = threading.Thread(target=_worker, daemon=True)
+            t.start()
+            t.join(self.sync_timeout)
+            if t.is_alive():
+                # 超时：放弃本次尝试（worker 线程留在后台自然消亡），立即重试
+                continue
+            return result["content"]
         return ""
+
+    def _generate_once(self, prompt: str = None, messages: list = None) -> str:
+        try:
+            if prompt:
+                _messages = [{"role": "user", "content": prompt}]
+            elif messages:
+                _messages = messages
+            else:
+                raise ValueError("prompt and messages cannot both be empty")
+
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=_messages,
+                **self.default_params
+            )
+            content = response.choices[0].message.content
+            if not isinstance(content, str):
+                raise ValueError("The response is not a string")
+            elif not content:
+                raise ValueError("The response is empty")
+            return content
+        except Exception:
+            time.sleep(self.base_wait_seconds)
+            return ""
     
     async def a_generate(self, prompt: str = None, messages: list = None) -> str:
         async with self.semaphore:

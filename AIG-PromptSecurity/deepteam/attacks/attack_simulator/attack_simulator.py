@@ -48,11 +48,19 @@ class SimulatedAttack(BaseModel):
     attack_method: Optional[str] = None
     error: Optional[str] = None
     useless: bool = False
+    # 多轮会话攻击：enhance 期间与目标在同一会话交互 N 轮。
+    # transcript 记录每轮 [{"turn", "attack", "response"}]，末轮响应即评估对象
+    # （red_teamer 直接取用，避免冷启动重发末轮）。仅统计口径仍按 1 个 case。
+    multi_turn: bool = False
+    transcript: Optional[List[dict]] = None
 
 
 class AttackSimulator:
     model_callback: Union[CallbackType, None] = None
     max_concurrent = 10
+    # 目标模型对象（runner 注入）：SessionScope 经它携带 session_id 调用，
+    # traced 回调不透传 kwargs，会话路由须绕过 wrapper 直达 model
+    target_model = None
 
     def __init__(
         self,
@@ -408,6 +416,39 @@ class AttackSimulator:
     ### Enhance attacks ##############################
     ##################################################
 
+    def _bind_session_scope(
+        self, simulated_attack: "SimulatedAttack", model_callback
+    ):
+        """多轮攻击专用：为当前 case 创建会话范围并返回（绑定会话的回调, scope）。
+
+        目标模型不支持会话（未注入 target_model / 无 **kwargs 签名）时
+        返回原回调与 None scope——行为退化为 deepteam 现状。
+        """
+        target_model = getattr(self, "target_model", None)
+        if target_model is None:
+            return model_callback, None
+
+        from deepteam.attacks.multi_turn.session import SessionScope
+        from uuid import uuid4 as _uuid4
+
+        scope = SessionScope(
+            session_id=_uuid4().hex,
+            vulnerability=simulated_attack.vulnerability or "",
+            attack_method=simulated_attack.attack_method or "",
+            endpoint=simulated_attack.attack_method or "",
+        )
+        bound = scope.bind(target_model, model_callback)
+        return bound, scope
+
+    def _apply_session_result(
+        self, simulated_attack: "SimulatedAttack", scope
+    ):
+        """enhance 结束后把会话轮次写回攻击记录。"""
+        if scope is None or not scope.transcript:
+            return
+        simulated_attack.multi_turn = True
+        simulated_attack.transcript = scope.transcript
+
     def enhance_attack(
         self,
         attack: BaseAttack,
@@ -419,6 +460,11 @@ class AttackSimulator:
         if attack_input is None:
             return simulated_attack
 
+        # 多轮攻击实例带会话/记忆状态（Crescendo MemorySystem 等）：
+        # 每 case 深拷贝，防止共享实例把状态串进其他 case
+        if getattr(attack, "is_multi_turn", False):
+            attack = copy.deepcopy(attack)
+
         simulated_attack.attack_method = attack.get_name()
         sig = inspect.signature(attack.enhance)
         try:
@@ -426,11 +472,15 @@ class AttackSimulator:
                 "simulator_model" in sig.parameters
                 and "model_callback" in sig.parameters
             ):
+                bound_cb, scope = self._bind_session_scope(
+                    simulated_attack, self.model_callback
+                )
                 simulated_attack.input = attack.enhance(
                     attack=attack_input,
                     simulator_model=self.simulator_model,
-                    model_callback=self.model_callback,
+                    model_callback=bound_cb,
                 )
+                self._apply_session_result(simulated_attack, scope)
             elif "simulator_model" in sig.parameters:
                 simulated_attack.input = attack.enhance(
                     attack=attack_input,
@@ -540,6 +590,11 @@ class AttackSimulator:
         if attack_input is None:
             return simulated_attack
 
+        # 多轮攻击实例带会话/记忆状态（Crescendo MemorySystem 等）：
+        # 每 case 深拷贝，防止共享实例把状态串进其他 case
+        if getattr(attack, "is_multi_turn", False):
+            attack = copy.deepcopy(attack)
+
         simulated_attack.attack_method = attack.get_name()
         sig = inspect.signature(attack.a_enhance)
 
@@ -548,11 +603,15 @@ class AttackSimulator:
                 "simulator_model" in sig.parameters
                 and "model_callback" in sig.parameters
             ):
+                bound_cb, scope = self._bind_session_scope(
+                    simulated_attack, self.model_callback
+                )
                 simulated_attack.input = await attack.a_enhance(
                     attack=attack_input,
                     simulator_model=self.simulator_model,
-                    model_callback=self.model_callback,
+                    model_callback=bound_cb,
                 )
+                self._apply_session_result(simulated_attack, scope)
             elif "simulator_model" in sig.parameters:
                 simulated_attack.input = await attack.a_enhance(
                     attack=attack_input,

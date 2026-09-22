@@ -27,6 +27,14 @@ from .pair_jailbreaking import PAIRJailbreaking
 from .goat_jailbreaking import GoatJailbreaking
 from .actor_attack import ActorAttack
 
+# 多轮攻击在 enhance 内部维护会话/记忆状态（Crescendo 的 MemorySystem、
+# GOAT 的对话历史等）。attack_simulator 依此标记做 per-case deepcopy，
+# 防止共享实例把状态串进并发的其他 case（历史遗留 bug，多轮会话化后必现）。
+for _cls in (BadLikertJudge, BestofN, CrescendoJailbreaking, LinearJailbreaking,
+             SequentialJailbreak, TreeJailbreaking, ManyShotJailbreaking,
+             PAIRJailbreaking, GoatJailbreaking, ActorAttack):
+    _cls.is_multi_turn = True
+
 __all__ = [
     "BadLikertJudge",
     "BestofN",
