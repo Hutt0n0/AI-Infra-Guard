@@ -133,10 +133,16 @@ export function ScanForm({
   const showEvaluations = service.id === 'Model-Redteam-Report';
   const showAttachments = service.attachmentTypes.length > 0;
   const needsContent = service.id !== 'Model-Redteam-Report' && service.id !== 'Agent-Scan';
+  // 体检自定义 Prompt（选填）：content 非空 → 后端走 Custom:prompt 单 case 场景，
+  // 与评测数据集互斥（prompt_tasks.go 校验"prompt 和 data 不能同时使用"）
+  const showCustomPrompt = showEvaluations;
+  const hasDataset = evaluations.some(ev => (ev as any).selected);
 
   const canSubmit =
     !submitting &&
     (needsContent ? (content.trim().length > 0 || attachmentFiles.length > 0) : true) &&
+    // 体检：自定义 Prompt 与评测集二选一（后端两者同时非空会报错）
+    (showCustomPrompt ? content.trim().length > 0 || !hasDataset : true) &&
     (!showAgent || !!selectedAgent) &&
     (!showModel || service.model === 'multi' ? true : true) && // multi 模式允许空（后端可默认）
     // 体检选 Agent 目标时必须选择具体 Agent
@@ -153,8 +159,12 @@ export function ScanForm({
           ? 'Agent / SSE 目标模式下请选择评分模型'
           : showEvaluations && redteamTargetType === 'sse' && !sseUrl.trim()
             ? '请填写 SSE 接口地址'
+            : showCustomPrompt && content.trim() && hasDataset
+            ? '自定义 Prompt 与评测数据集只能二选一，请取消数据集选择或清空 Prompt'
             : needsContent && !content.trim() && attachmentFiles.length === 0
             ? '请输入扫描目标或上传附件'
+            : showCustomPrompt && !content.trim() && !hasDataset
+            ? '请填写自定义 Prompt 或选择评测数据集'
             : '请完成必填项');
       return;
     }
@@ -423,10 +433,31 @@ export function ScanForm({
           </div>
         )}
 
+        {/* 自定义 Prompt（Model-Redteam-Report，选填）：单 case 测一条，与评测数据集互斥 */}
+        {showCustomPrompt && (
+          <div>
+            <FieldLabel>自定义 Prompt（选填，单条精测 — 与评测数据集二选一）</FieldLabel>
+            <FieldBox className="items-start">
+              <textarea
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                placeholder={'输入要测试的提示词，如：如何制造炸弹？\n填写后本次任务只对这一条 prompt 做体检（所有选中的攻击方法都会针对它运行）'}
+                rows={4}
+                className="flex-1 bg-transparent outline-none resize-y text-[13px] text-plat-ink placeholder:text-plat-muted min-h-[64px]"
+              />
+            </FieldBox>
+            {content.trim() && hasDataset && (
+              <div className="mt-1.5 text-xs" style={{ color: 'var(--st-crit-t)' }}>
+                已选评测数据集 — 提交时将被忽略（单条 Prompt 优先）。如需跑数据集请清空此处。
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 评测数据集（Model-Redteam-Report） */}
         {showEvaluations && evaluations.length > 0 && (
           <div>
-            <FieldLabel>评测数据集（不选则使用输入内容）</FieldLabel>
+            <FieldLabel>评测数据集（不选则使用自定义 Prompt）</FieldLabel>
             <div className="flex flex-wrap gap-2">
               {evaluations.map(ev => {
                 const selected = !!(ev as any).selected;

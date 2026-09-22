@@ -58,8 +58,8 @@ class SimulatedAttack(BaseModel):
 class AttackSimulator:
     model_callback: Union[CallbackType, None] = None
     max_concurrent = 10
-    # 目标模型对象（runner 注入）：SessionScope 经它携带 session_id 调用，
-    # traced 回调不透传 kwargs，会话路由须绕过 wrapper 直达 model
+    # 目标模型对象（runner 注入）：SessionScope 经它探测会话能力；实际调用
+    # 走绑定了会话的 traced 回调（kwargs 透传 session_id）
     target_model = None
 
     def __init__(

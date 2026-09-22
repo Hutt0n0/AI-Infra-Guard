@@ -175,8 +175,8 @@ class RedTeamRunner:
                 else:
                     model_callback = traced_model_callback(model.generate, model.get_model_name())
                 # 目标模型对象挂到 attack_simulator：多轮攻击（SessionScope）
-                # 需要直接调用 model.a_generate/generate 携带 session_id，
-                # traced 回调不透传 kwargs，故会话路由绕过 wrapper。
+                # 需要带 session_id 调用；traced 回调已透传 kwargs，SessionScope
+                # 在其外包一层会话绑定。
                 red_teamer.attack_simulator.target_model = model
 
                 # 预校验编码类算子

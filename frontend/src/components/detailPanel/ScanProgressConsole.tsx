@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleDot,
+  FileText,
   Loader2,
   MessagesSquare,
   ShieldAlert,
@@ -770,6 +771,32 @@ const TraceCallDetail: React.FC<{ call: TraceCall; fmtTime: (d?: Date) => string
   const { t } = useTranslation();
   const [openReq, setOpenReq] = useState(true);
   const [openResp, setOpenResp] = useState(true);
+  // wire 抓包原文（meta.wire_capture 指向的 .http 文件）按需加载
+  const wireFile = useMemo(() => {
+    const parseMeta = (meta?: string): Record<string, any> | null => {
+      if (!meta) return null;
+      try { return JSON.parse(meta); } catch { return null; }
+    };
+    return parseMeta(call.response?.meta || call.error?.meta)?.wire_capture || '';
+  }, [call]);
+  const [wireContent, setWireContent] = useState<string | null>(null);
+  const [wireLoading, setWireLoading] = useState(false);
+  const [wireOpen, setWireOpen] = useState(true);
+  useEffect(() => {
+    setWireContent(null);
+    setWireOpen(true);
+    if (!wireFile) return;
+    let cancelled = false;
+    setWireLoading(true);
+    fetch(`/api/v1/app/target-capture?file=${encodeURIComponent(wireFile)}`)
+      .then(r => r.json())
+      .then(res => {
+        if (!cancelled && res.status === 0 && res.data?.content) setWireContent(res.data.content);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setWireLoading(false); });
+    return () => { cancelled = true; };
+  }, [wireFile]);
 
   const parseMeta = (meta?: string): Record<string, any> | null => {
     if (!meta) return null;
@@ -915,6 +942,39 @@ const TraceCallDetail: React.FC<{ call: TraceCall; fmtTime: (d?: Date) => string
                 </pre>
                 {respMeta && <div className="px-3 pb-2">{metaChips(respMeta)}</div>}
               </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Wire capture（原始 HTTP 报文，.http 文件格式：请求行+头+体+响应行+头+体） */}
+      {wireFile && (
+        <>
+          <div className="text-[11px] font-medium text-gray-500 pt-1">
+            {t('scanConsole.wireCapture', '原始 HTTP 报文')}
+            <span className="ml-2 text-[10px] font-mono text-gray-400">{wireFile}</span>
+          </div>
+          <div className="rounded-lg border border-gray-300 overflow-hidden">
+            <button
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-left bg-gray-50/60 text-gray-700 hover:bg-gray-100"
+              onClick={() => setWireOpen(o => !o)}
+            >
+              <FileText className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+              <span className="text-[11px] font-semibold flex-1">
+                {t('scanConsole.wireCaptureToggle', '请求/响应原始报文（wire 格式）')}
+              </span>
+              {wireOpen ? (
+                <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              )}
+            </button>
+            {wireOpen && (
+              <pre className="px-3 py-2 whitespace-pre-wrap font-mono text-[11px] text-gray-700 max-h-[36rem] overflow-y-auto bg-gray-50/30">
+                {wireLoading
+                  ? t('scanConsole.wireLoading', '加载抓包中…')
+                  : wireContent || t('scanConsole.wireUnavailable', '抓包文件不可用（可能已清理或由旧任务产生）')}
+              </pre>
             )}
           </div>
         </>

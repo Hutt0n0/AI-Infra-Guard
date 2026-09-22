@@ -31,8 +31,16 @@ import json
 import os
 import sys
 import threading
+import time
+from pathlib import Path
 
 from cli.model_utils.base import BaseLLM
+
+try:
+    from cli.trace_utils import set_wire_context
+except Exception:  # trace utils unavailable — capture still works, meta just empty
+    def set_wire_context(**kwargs):
+        pass
 
 
 class _AgentSession:
@@ -44,6 +52,95 @@ class _AgentSession:
         self.session_id = session_id
         self.conversation_id = ""
         self.turns = 0
+
+
+# ---------------------------------------------------------------------------
+# Wire capture（发往受测 agent 的所有请求/响应原始报文留存）
+#
+# 格式与 JDAPP-DAI toolkit 的 dong_*.http 一致（wire 格式，一轮一文件）：
+#   请求行 + 请求头 + 空行 + 请求体 + 空行 + 响应状态行 + 响应头 + 空行 + 响应体
+# 产出: logs/target_captures/<label>_<ts>_<seq>.http
+# ---------------------------------------------------------------------------
+
+_capture_lock = threading.Lock()
+_capture_seq = 0
+
+
+def _resolve_capture_dir() -> Path:
+    """抓包目录锚定仓库根的 logs/target_captures/（server API 按同一根解析）。
+
+    Python 子进程 cwd = AIG-PromptSecurity/（uv run 由 Go 侧 cmd.Dir 指定），
+    直接相对路径会写进 AIG-PromptSecurity/logs/ 而 server 读不到。向上找
+    仓库锚点（data/eval），找不到（如打包部署）退回 cwd。
+    """
+    env_dir = os.environ.get("AIG_TARGET_CAPTURE_DIR")
+    if env_dir:
+        return Path(env_dir)
+    cur = Path.cwd().resolve()
+    for p in (cur, *cur.parents):
+        if (p / "data" / "eval").is_dir():
+            return p / "logs" / "target_captures"
+    return Path("logs/target_captures")
+
+
+def _save_wire_capture(method: str, url: str, req_headers, req_body,
+                       status, resp_headers, resp_body: bytes, error: str = "",
+                       label: str = "target") -> str:
+    """一轮目标交互的完整请求/响应报文落盘。失败不影响主流程。"""
+    global _capture_seq
+    try:
+        with _capture_lock:
+            _capture_seq += 1
+            seq = _capture_seq
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            safe_label = (label or "target").replace("/", "_").replace(" ", "_")
+            capture_dir = _resolve_capture_dir()
+            capture_dir.mkdir(parents=True, exist_ok=True)
+            fp = capture_dir / f"{safe_label}_{ts}_{seq:03d}.http"
+
+        # 请求行：从 URL 拆出 path
+        try:
+            from urllib.parse import urlsplit
+            parts = urlsplit(url)
+            path = parts.path or "/"
+            if parts.query:
+                path += "?" + parts.query
+            host = parts.netloc
+        except Exception:
+            path, host = url, ""
+
+        if isinstance(req_body, bytes):
+            req_body_text = req_body.decode("utf-8", "replace")
+        else:
+            req_body_text = req_body if isinstance(req_body, str) else json.dumps(req_body, ensure_ascii=False)
+
+        lines = [f"{method} {path} HTTP/1.1"]
+        if host:
+            lines.append(f"Host: {host}")
+        for k, v in (req_headers or {}).items():
+            lines.append(f"{k}: {v}")
+        lines.append("")
+        lines.append(req_body_text)
+        lines.append("")
+
+        if error and not status:
+            lines.append(f"HTTP/1.1 <TRANSPORT-ERROR> {error}")
+        else:
+            lines.append(f"HTTP/1.1 {status}")
+            for k, v in (resp_headers or {}).items():
+                lines.append(f"{k}: {v}")
+            lines.append("")
+            if isinstance(resp_body, bytes):
+                lines.append(resp_body.decode("utf-8", "replace"))
+            elif isinstance(resp_body, str):
+                lines.append(resp_body)
+            else:
+                lines.append(json.dumps(resp_body, ensure_ascii=False))
+
+        fp.write_text("\n".join(lines), encoding="utf-8")
+        return str(fp)
+    except Exception:
+        return ""
 
 
 class AgentTargetModel(BaseLLM):
@@ -170,18 +267,40 @@ class AgentTargetModel(BaseLLM):
             try:
                 client, provider = self._get_client_and_provider()
                 call_provider_obj = provider
-                if sess is not None and self._supports_session():
-                    # 只替换会话占位符；{{prompt}} 仍交 adapter 渲染
-                    #（避免自己处理 JSON 转义）
+                if self._supports_session():
+                    # 会话占位符替换：有会话注入会话 ID；无会话（评估期重发/
+                    # 预校验探针等单轮调用）替换为空串——否则字面
+                    # "{{session_id}}" 会原样发给上游（被代理当新会话）。
                     call_provider_obj = provider.model_copy(deep=True)
                     call_provider_obj.config.body = call_provider_obj.config.body.replace(
                         "{{session_id}}",
-                        json.dumps(sess.conversation_id)[1:-1],
+                        json.dumps(sess.conversation_id)[1:-1] if sess is not None else "",
                     )
+                # wire 抓包：渲染完整请求体（含 prompt 与 session_id），与实际
+                # 发出的报文一致。渲染逻辑与 adapter._render_prompt_body 相同。
+                cfg = call_provider_obj.config
+                capture_url = cfg.url or ""
+                capture_headers = dict(cfg.headers) if cfg.headers else {}
+                if capture_headers and "Content-Type" not in capture_headers and "content-type" not in capture_headers:
+                    capture_headers["Content-Type"] = "application/json"
+                try:
+                    body_tpl = cfg.body
+                    body_str = json.dumps(body_tpl, ensure_ascii=False) if isinstance(body_tpl, (dict, list)) else str(body_tpl or "")
+                    json_escaped_prompt = json.dumps(prompt, ensure_ascii=False)[1:-1]
+                    capture_body = body_str.replace("{{prompt}}", json_escaped_prompt).replace("{{prompt_json}}", json_escaped_prompt)
+                except Exception:
+                    capture_body = prompt
+                # 渲染后的 body 传给 adapter 渲染反而会二次转义——仍传原始
+                # provider（未替换 {{prompt}}），这里渲染仅供抓包展示。
                 result = client.call_provider(call_provider_obj, prompt)
+                capture_status = None
+                capture_resp_headers = {}
+                capture_resp_body = ""
+                capture_error = ""
                 if result.success and result.provider_response:
+                    pr = result.provider_response
                     # 回读上游会话 ID（代理经 X-Session-Id 响应头返回）
-                    headers = result.provider_response.headers or {}
+                    headers = pr.headers or {}
                     new_conv = None
                     for k, v in headers.items():
                         if k.lower() == "x-session-id":
@@ -192,29 +311,54 @@ class AgentTargetModel(BaseLLM):
                     if new_conv and sess is not None:
                         sess.turns += 1
 
-                    output = result.provider_response.output
+                    capture_status = (pr.metadata or {}).get("status_code")
+                    capture_resp_headers = headers
+                    capture_resp_body = pr.raw if isinstance(pr.raw, str) else json.dumps(pr.raw, ensure_ascii=False) if pr.raw is not None else ""
+
+                    output = pr.output
                     if isinstance(output, str) and output:
+                        cap_file = _save_wire_capture(
+                            (cfg.method or "POST").upper(), capture_url, capture_headers, capture_body,
+                            capture_status, capture_resp_headers, capture_resp_body, label=self.label)
+                        # wire 上下文：traced wrapper 取走并入 response trace meta。
+                        # 只带文件路径（报文可能几十 KB，避免任务详情接口膨胀），
+                        # 前端经 /api/v1/app/target-capture?file=... 按需读取原文。
+                        try:
+                            set_wire_context(
+                                session_id=sess.conversation_id if sess else "",
+                                wire_capture=os.path.basename(cap_file) if cap_file else "",
+                            )
+                        except Exception:
+                            pass
                         return output
                     # HTTP 200 但正文为空：多数情况是上游内容风控（如京东
                     # lps 返回 code=-32603 时空 textContent）。把上游原始
                     # 状态带进错误信息，方便区分"agent 拒答"与"调用失败"。
-                    raw = result.provider_response.raw
+                    raw = pr.raw
                     upstream_code = None
                     if isinstance(raw, dict):
                         upstream_code = raw.get("code") or (raw.get("error") or {}).get("code")
                     if upstream_code is not None and str(upstream_code) not in ("0", "None"):
                         last_error = f"agent returned empty output (upstream code: {upstream_code})"
                     else:
-                        last_error = result.provider_response.error or "empty agent response"
+                        last_error = pr.error or "empty agent response"
                 else:
                     last_error = result.message or "agent call failed"
+                _save_wire_capture(
+                    (cfg.method or "POST").upper(), capture_url, capture_headers, capture_body,
+                    capture_status, capture_resp_headers, capture_resp_body,
+                    error=last_error, label=self.label)
             except Exception as e:  # noqa: BLE001
                 last_error = str(e)
+                try:
+                    _save_wire_capture(
+                        (cfg.method or "POST").upper(), capture_url,
+                        capture_headers, capture_body, None, {}, "", error=last_error, label=self.label)
+                except Exception:
+                    pass
             # Brief backoff before the next attempt (skip after the final one)
             if attempt < self.max_trial - 1:
                 time_sleep = self.base_wait_seconds * (2 ** attempt)
-                import time
-
                 time.sleep(time_sleep)
         return ""
 
