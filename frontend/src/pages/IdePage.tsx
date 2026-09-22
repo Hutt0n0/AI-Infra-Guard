@@ -267,6 +267,7 @@ export default function IdePage() {
                         <option value={300}>5 分钟</option>
                         <option value={600}>10 分钟</option>
                         <option value={1800}>30 分钟</option>
+                        <option value={-1}>常驻(无超时)</option>
                       </select>
                     </span>
                     <span className="flex-1" />
