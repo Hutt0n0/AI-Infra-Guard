@@ -255,6 +255,7 @@ export default function PromptSetTabContent() {
             rows={filtered}
             rowKey={r => r.id}
             onRowClick={r => setDetail(r)}
+            maxHeight="calc(100vh - 380px)"
             empty={searchDraft
               ? label('platform.ruleLibrary.promptSearchEmpty', '无匹配的提示词集')
               : label('platform.ruleLibrary.promptEmpty', '暂无提示词集 — 点击「新建集合」创建')}

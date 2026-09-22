@@ -27,6 +27,8 @@ export interface DataTableProps<T> {
   rowActive?: (row: T) => boolean;
   empty?: React.ReactNode;
   className?: string;
+  /** 表体最大高度（如 'calc(100vh - 420px)' / 480）：超出后表体内滚动，表头 sticky */
+  maxHeight?: number | string;
 }
 
 /**
@@ -34,10 +36,14 @@ export interface DataTableProps<T> {
  * 基于原生 table，不做重抽象
  */
 export function DataTable<T>({
-  columns, rows, rowKey, onRowClick, rowActive, empty, className,
+  columns, rows, rowKey, onRowClick, rowActive, empty, className, maxHeight,
 }: DataTableProps<T>) {
+  const scrollable = maxHeight != null;
   return (
-    <div className={cn('w-full overflow-x-auto', className)}>
+    <div
+      className={cn('w-full overflow-x-auto', scrollable && 'overflow-y-auto scrollbar-thin', className)}
+      style={scrollable ? { maxHeight } : undefined}
+    >
       <table className="w-full border-collapse">
         <thead>
           <tr>
@@ -46,6 +52,7 @@ export function DataTable<T>({
                 key={col.key}
                 className={cn(
                   'text-left text-[11px] font-semibold uppercase tracking-wide text-plat-muted border-b py-2 px-2.5',
+                  scrollable && 'sticky top-0 z-10 bg-card',
                   col.numeric && 'text-right',
                   i === 0 && 'pl-5',
                   col.headerClassName

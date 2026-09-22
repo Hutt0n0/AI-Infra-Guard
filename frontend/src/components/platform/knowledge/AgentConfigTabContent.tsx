@@ -110,6 +110,7 @@ export default function AgentConfigTabContent() {
             columns={columns}
             rows={rows}
             rowKey={r => r.id}
+            maxHeight="calc(100vh - 380px)"
             empty={label('platform.ruleLibrary.agentEmpty', '暂无 Agent 配置 — 在「节点与 Agent」页新建')}
           />
           <div className="flex items-center justify-between px-5 py-3 border-t" style={{ borderTopColor: 'var(--plat-grid)' }}>
