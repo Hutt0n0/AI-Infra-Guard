@@ -114,7 +114,7 @@ func HandleGetLogs(c *gin.Context) {
 			// 文件不存在（如 agent 从未启动）：返回空而非错误，前端展示空态
 			log.Infof("日志文件不存在: %s", logPath)
 			c.JSON(http.StatusOK, gin.H{
-				"status": 0,
+				"status":  0,
 				"message": "success",
 				"data": gin.H{
 					"source":  source,
@@ -157,4 +157,81 @@ func parseIntSafe(s string) int {
 		}
 	}
 	return n
+}
+
+// ---------------------------------------------------------------------------
+// 受测目标 wire 抓包 API
+//
+// AgentTargetModel._call_agent 把发往受测 agent 的每一轮请求/响应原始报文
+// 落盘到 {cwd}/logs/target_captures/<label>_<ts>_<seq>.http（与 JDAPP-DAI
+// dong_*.http 同格式的 wire 格式）；文件名经 trace 的 meta.wire_capture 透出。
+//
+// GET /api/v1/app/target-capture?file=<name>  → 单个抓包原文
+// GET /api/v1/app/target-capture              → 抓包文件列表（新→旧）
+// ---------------------------------------------------------------------------
+
+const captureMaxBytes = 4 << 20 // 单文件最多回传 4MB
+
+func captureDir() string {
+	if dir := os.Getenv("AIG_TARGET_CAPTURE_DIR"); dir != "" {
+		return dir
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "logs/target_captures"
+	}
+	return filepath.Join(cwd, "logs", "target_captures")
+}
+
+// HandleTargetCapture GET /api/v1/app/target-capture
+func HandleTargetCapture(c *gin.Context) {
+	dir := captureDir()
+	name := strings.TrimSpace(c.Query("file"))
+	if name == "" {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				c.JSON(http.StatusOK, gin.H{"status": 0, "message": "success", "data": gin.H{"files": []string{}, "exists": false}})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"status": 1, "message": "读取抓包目录失败: " + err.Error(), "data": nil})
+			return
+		}
+		// ReadDir 已按文件名排序（含时间戳前缀，倒序即新→旧）
+		files := make([]string, 0, len(entries))
+		for i := len(entries) - 1; i >= 0; i-- {
+			if !entries[i].IsDir() && strings.HasSuffix(entries[i].Name(), ".http") {
+				files = append(files, entries[i].Name())
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"status": 0, "message": "success", "data": gin.H{"files": files, "exists": true}})
+		return
+	}
+
+	// 路径安全：只允许纯文件名（无分隔符、无 ..），且必须匹配已知抓包命名
+	if name != filepath.Base(name) || strings.Contains(name, "..") ||
+		strings.ContainsAny(name, `/\`) || !strings.HasSuffix(name, ".http") {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "非法抓包文件名", "data": nil})
+		return
+	}
+	path := filepath.Join(dir, name)
+	fi, err := os.Stat(path)
+	if err != nil || fi.IsDir() {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "抓包文件不存在: " + name, "data": nil})
+		return
+	}
+	if fi.Size() > captureMaxBytes {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "抓包文件过大", "data": nil})
+		return
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "读取抓包失败: " + err.Error(), "data": nil})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status":  0,
+		"message": "success",
+		"data":    gin.H{"file": name, "size": fi.Size(), "content": string(content)},
+	})
 }

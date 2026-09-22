@@ -199,6 +199,8 @@ func RunWebServer(options *version.Options) {
 			// 任务管理
 			tasks := appSecurity.Group("/tasks")
 			{
+				// 受测目标 wire 抓包（列表 / 单文件原文）
+				appSecurity.GET("/target-capture", HandleTargetCapture)
 				// 获取任务列表接口
 				tasks.GET("", func(c *gin.Context) {
 					HandleGetTaskList(c, taskManager)

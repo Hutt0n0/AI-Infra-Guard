@@ -41,6 +41,40 @@ from cli.aig_logger import logger, messageTrace
 # Per-call attack context: {"attack_method": str, "vulnerability": str, "turn": int, "phase": str}
 trace_context: ContextVar[dict] = ContextVar("trace_context", default={})
 
+# 传输层附加信息（AgentTargetModel._call_agent 写入，traced wrapper 读出并
+# 并入 trace meta）：{"session_id": str, "wire_capture": str}——wire_capture 为
+# wire 抓包文件名（完整 HTTP 原始报文经抓包 API 按需读取，避免 trace 膨胀）。
+#
+# 注意：不用 ContextVar——asyncio.to_thread 的工作线程不继承调用方 context,
+# _call_agent 在 to_thread 线程里写入、wrapper 在事件循环线程读取，ContextVar
+# 会静默失联。改用模块级单槽（最近一次写入），每次调用前清空、调用后读走，
+# 并发错位的影响仅限 meta 标注（并发窗口极小），不影响调用本身。
+wire_slot: dict = {}
+wire_slot_lock = None  # 惰性创建，避免 import 期建锁
+
+
+def _wire_lock():
+    global wire_slot_lock
+    if wire_slot_lock is None:
+        import threading
+        wire_slot_lock = threading.Lock()
+    return wire_slot_lock
+
+
+def set_wire_context(**kwargs) -> None:
+    """Publish transport-level wire info for the next trace emission."""
+    with _wire_lock():
+        wire_slot.clear()
+        wire_slot.update(kwargs)
+
+
+def pop_wire_context() -> dict:
+    """Read-and-clear the wire context (one-shot, per call)."""
+    with _wire_lock():
+        ctx = dict(wire_slot)
+        wire_slot.clear()
+    return ctx
+
 
 def set_trace_context(**kwargs) -> None:
     """Publish the current attack context for the next target calls."""
@@ -73,20 +107,31 @@ def _emit(direction: str, trace_id: str, endpoint: str, payload: str, meta: dict
 
 
 def traced_model_callback(model_callback, endpoint: str):
-    """Wrap a sync ``model_callback(prompt) -> str`` with trace emission."""
+    """Wrap a sync ``model_callback(prompt, **kwargs) -> str`` with trace emission.
 
-    def wrapped(prompt: str) -> str:
+    kwargs（如 session_id）透传给底层回调并并入 request meta。
+    wire_context 里由传输层写入的 request_wire/response_wire（完整 HTTP
+    原始报文）并入对应方向的 meta，供前端展示抓包原文。
+    """
+
+    def wrapped(prompt: str, **kwargs) -> str:
         trace_id = uuid.uuid4().hex
-        _emit("request", trace_id, endpoint, prompt, {})
+        req_meta = {k: v for k, v in kwargs.items() if v}
+        _emit("request", trace_id, endpoint, prompt, req_meta)
         start = time.time()
         try:
-            output = model_callback(prompt)
+            output = model_callback(prompt, **kwargs)
         except Exception as e:  # noqa: BLE001
             _emit("error", trace_id, endpoint, str(e), {"elapsed_ms": int((time.time() - start) * 1000)})
             raise
+        wire = pop_wire_context()
         meta = {"elapsed_ms": int((time.time() - start) * 1000)}
         if not output:
             meta["empty_output"] = True
+        if wire.get("session_id"):
+            meta["session_id"] = wire["session_id"]
+        if wire.get("wire_capture"):
+            meta["wire_capture"] = wire["wire_capture"]
         _emit("response" if output else "error", trace_id, endpoint, output or "", meta)
         return output
 
@@ -94,20 +139,26 @@ def traced_model_callback(model_callback, endpoint: str):
 
 
 def traced_async_model_callback(model_callback, endpoint: str):
-    """Wrap an async ``model_callback(prompt) -> str`` with trace emission."""
+    """Wrap an async ``model_callback(prompt, **kwargs) -> str`` with trace emission."""
 
-    async def wrapped(prompt: str) -> str:
+    async def wrapped(prompt: str, **kwargs) -> str:
         trace_id = uuid.uuid4().hex
-        _emit("request", trace_id, endpoint, prompt, {})
+        req_meta = {k: v for k, v in kwargs.items() if v}
+        _emit("request", trace_id, endpoint, prompt, req_meta)
         start = time.time()
         try:
-            output = await model_callback(prompt)
+            output = await model_callback(prompt, **kwargs)
         except Exception as e:  # noqa: BLE001
             _emit("error", trace_id, endpoint, str(e), {"elapsed_ms": int((time.time() - start) * 1000)})
             raise
+        wire = pop_wire_context()
         meta = {"elapsed_ms": int((time.time() - start) * 1000)}
         if not output:
             meta["empty_output"] = True
+        if wire.get("session_id"):
+            meta["session_id"] = wire["session_id"]
+        if wire.get("wire_capture"):
+            meta["wire_capture"] = wire["wire_capture"]
         _emit("response" if output else "error", trace_id, endpoint, output or "", meta)
         return output
 

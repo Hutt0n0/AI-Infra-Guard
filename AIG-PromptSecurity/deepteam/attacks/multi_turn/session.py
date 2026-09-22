@@ -26,9 +26,11 @@ SessionScope 在 enhance 边界把回调闭包绑定到本 case 的会话上：
     wrapped = scope.bind(target_model, original_callback)
     # multi_turn 攻击拿到的 wrapped 回调每轮自动携带同一 session_id
 
-- 会话 id 经 model.a_generate/generate 的 session_id kwarg 下发
-  （AgentTargetModel 据此路由到同一上游会话；不支持会话的模型忽略该
-  kwarg，退化为逐轮独立调用，即 deepteam 原行为）。
+- 会话 id 经 traced 回调的 session_id kwarg 下发（wrapper 透传 kwargs 到
+  model.a_generate/generate；AgentTargetModel 据此路由到同一上游会话；
+  不支持会话的模型忽略该 kwarg，退化为逐轮独立调用，即 deepteam 原行为）。
+- trace 发射保持在 traced wrapper 外层（request/response 配对 + turn 上下文），
+  传输层经 wire_context 把完整 HTTP 请求/响应原始报文并入 response meta。
 - transcript 逐轮记录 attack/response，供报告展示与评估阶段直接取用
   末轮响应（避免冷启动重发末轮导致误判）。
 """
@@ -126,7 +128,14 @@ class SessionScope:
         def wrapped(prompt: str) -> str:
             turn = len(self.transcript) + 1
             self._trace_turn(turn)
-            resp = model.generate(prompt, session_id=self.session_id)
+            # 走 traced wrapper（trace 发射 + wire 抓包 meta），session_id 经
+            # kwargs 透传到 model.generate（wrapper 现已支持 **kwargs 透传）。
+            try:
+                resp = model_callback(prompt, session_id=self.session_id)
+            except TypeError:
+                # 兜底：回调不支持 kwargs（理论不发生，runner 组装的都是
+                # traced wrapper），退化为直调 model
+                resp = model.generate(prompt, session_id=self.session_id)
             self._record(prompt, resp)
             return resp
 
@@ -136,7 +145,10 @@ class SessionScope:
         async def wrapped(prompt: str) -> str:
             turn = len(self.transcript) + 1
             self._trace_turn(turn)
-            resp = await model.a_generate(prompt, session_id=self.session_id)
+            try:
+                resp = await model_callback(prompt, session_id=self.session_id)
+            except TypeError:
+                resp = await model.a_generate(prompt, session_id=self.session_id)
             self._record(prompt, resp)
             return resp
 
