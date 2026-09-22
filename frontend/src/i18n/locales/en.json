@@ -1253,7 +1253,8 @@
       "mcpScan": "MCP Scan",
       "modelRedteamReport": "LLM Security Check",
       "aiInfraScan": "AI Infra Scan",
-      "logs": "Logs"
+      "logs": "Logs",
+      "ide": "Python Lab"
     },
     "topbar": {
       "searchPlaceholder": "Search targets, CVEs, tasks…",
@@ -1291,7 +1292,7 @@
       "kpiSevRange": "Critical {{c}} · High {{h}} · Medium {{m}}",
       "kpiAssets": "AI Assets Covered",
       "kpiJailbreak": "Jailbreak Pass Rate",
-      "kpiBaseTotal": "{{count}} tests",
+      "kpiBaseTotal": "{{count}} test cases",
       "trendTitle": "Risk Finding Trend",
       "trendSub": "By task type · scan output",
       "tableView": "Table View",
@@ -1325,9 +1326,6 @@
       "loading": "Loading posture data…",
       "domainUnsupported": "Asset-domain dimension requires AI-Infra-Scan target assets",
       "domainUnsupportedShort": "Asset domain pending",
-      "kpiSample": "{{count}} task samples",
-      "kpiBaseTotal": "{{count}} test cases",
-      "kpiSevRange": "Critical {{c}} · High {{h}} · Medium {{m}}",
       "topTargetsTitle": "Top Risky Targets",
       "topTargetsSub": "By risk finding count",
       "emptyTargets": "No target risk data yet",
@@ -1539,6 +1537,20 @@
       "jumpToLatest": "Jump to latest",
       "agentMissing": "agent has never started — scan tasks cannot be dispatched. Start with: AIG_SERVER=127.0.0.1:8088 ./bin/agent",
       "serverMissing": "server log not generated yet"
+    },
+    "ide": {
+      "title": "Python Lab",
+      "pageSub": "Write, run and manage Python scripts on the server",
+      "scripts": "Scripts",
+      "newScript": "New script name (ends with .py):",
+      "rename": "New name:",
+      "deleteConfirm": "Delete this script?",
+      "saved": "Saved",
+      "argsPlaceholder": "Run args (space-separated, optional)",
+      "nameInvalid": "Script name allows letters/digits/_-. and must end with .py",
+      "conflict.title": "Script was modified in another window. Overwrite?",
+      "console.empty": "Select or create a script on the left",
+      "deps": "Install Dependencies"
     }
   }
 }

@@ -201,6 +201,8 @@ func RunWebServer(options *version.Options) {
 			{
 				// 受测目标 wire 抓包（列表 / 单文件原文）
 				appSecurity.GET("/target-capture", HandleTargetCapture)
+				// Python 实验室（脚本编辑/运行/依赖）
+				RegisterIdeRoutes(appSecurity)
 				// 获取任务列表接口
 				tasks.GET("", func(c *gin.Context) {
 					HandleGetTaskList(c, taskManager)

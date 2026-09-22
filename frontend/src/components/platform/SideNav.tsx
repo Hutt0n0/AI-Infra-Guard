@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, ListChecks, ShieldCheck, FileBarChart2,
   BookOpen, Bot, Settings, Radar, Store, FileSearch, AlertTriangle, Bug, ScrollText,
+  FlaskConical,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import SettingsDialog from '../SettingsDialog';
@@ -44,6 +45,7 @@ const NAV_ITEMS: NavItemDef[] = [
   { key: 'knowledge', to: '/knowledge', icon: BookOpen, section: 'knowledge' },
   { key: 'agents', to: '/agents', icon: Bot, section: 'system' },
   { key: 'logs', to: '/logs', icon: ScrollText, section: 'system' },
+  { key: 'ide', to: '/ide', icon: FlaskConical, section: 'system' },
   { key: 'settings', to: null, icon: Settings, section: 'system' },
 ];
 
