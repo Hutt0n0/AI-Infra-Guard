@@ -31,8 +31,10 @@ const (
 	ideMaxPollChunk   = 512 << 10 // 单次轮询回传上限 512KB
 	ideDefaultTimeout = 600       // 默认运行超时（秒）
 	ideMaxTimeout     = 1800      // 运行超时上限（秒）
-	ideRunsKeep       = 50        // 每用户保留的 run 目录数
-	ideRunsMaxAge     = 7 * 24 * time.Hour
+	// ideTimeoutPersistent = 0 表示常驻：不设超时，仅可手动停止。供
+	// SSE 代理这类常驻服务用（AIG_IDE_MAX_TIMEOUT_SEC=0 时上限即常驻）。
+	ideRunsKeep   = 50              // 每用户保留的 run 目录数
+	ideRunsMaxAge = 7 * 24 * time.Hour
 )
 
 var ideRunIDRe = regexp.MustCompile(`^run_[0-9]{8}_[0-9]{6}_[0-9a-f]{4}$`)
@@ -212,7 +214,14 @@ func (m *ideRunManager) start(username, kind, script string, packages []string, 
 		m.mu.Unlock()
 		return nil, fmt.Errorf("创建运行目录失败: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	// timeoutSec==0 → 常驻：不设超时，仅 kill 接口可停止
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if timeoutSec > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
 	logPath := filepath.Join(ideRunDir(username, runID), "output.log")
 	m.active[runID] = &ideActiveRun{cancel: cancel, meta: meta, logPath: logPath}
 	m.mu.Unlock()

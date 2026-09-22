@@ -343,12 +343,23 @@ func HandleIdeStartRun(c *gin.Context) {
 			return
 		}
 	}
+	// timeout_sec=-1 表示常驻（无超时，仅手动停止）；上限可经
+	// AIG_IDE_MAX_TIMEOUT_SEC 覆盖（设 0 = 允许常驻，供 SSE 代理等
+	// 常驻服务经实验室托管运行）。
+	maxTimeout := ideMaxTimeout
+	if v := strings.TrimSpace(os.Getenv("AIG_IDE_MAX_TIMEOUT_SEC")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			maxTimeout = n
+		}
+	}
 	timeout := body.TimeoutSec
-	if timeout <= 0 {
+	if timeout == -1 && maxTimeout == 0 {
+		timeout = 0 // 常驻
+	} else if timeout <= 0 {
 		timeout = ideDefaultTimeout
 	}
-	if timeout > ideMaxTimeout {
-		timeout = ideMaxTimeout
+	if maxTimeout > 0 && timeout > maxTimeout {
+		timeout = maxTimeout
 	}
 
 	dir, err := ideUserScriptsDirSafe(username)
