@@ -19,6 +19,7 @@ const CRUMB_MAP: Record<string, { key: string; fallback: string; light: string }
   '/knowledge': { key: 'platform.nav.knowledge', fallback: '规则库', light: 'Rule Library' },
   '/agents': { key: 'platform.nav.agents', fallback: '节点与 Agent', light: 'Agents & Nodes' },
   '/logs': { key: 'platform.logs.title', fallback: '日志中心', light: 'Logs' },
+  '/ide': { key: 'platform.nav.ide', fallback: 'Python 实验室', light: 'Python Lab' },
   '/help': { key: 'navigation.help', fallback: '帮助文档', light: 'Help' },
 };
 

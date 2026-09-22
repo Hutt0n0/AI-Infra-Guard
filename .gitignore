@@ -73,3 +73,8 @@ AIG-PromptSecurity/uv.lock
 agent-scan/uv.lock
 __pycache__/
 *.pyc
+
+# Python 实验室运行时数据(用户脚本/venv/运行产物)
+data/scripts/
+data/venvs/
+logs/script_runs/

@@ -262,6 +262,15 @@ export default defineConfig(({ mode }) => {
         input: {
           main: path.resolve(__dirname, 'index.html'),
         },
+        output: {
+          // monaco 单独 chunk:IDE 页 lazy 加载,主包不被撑大
+          // (IdeEditor 只引 editor.api 核心,不含各语言 worker)
+          manualChunks(id) {
+            if (id.includes('node_modules/monaco-editor') || id.includes('node_modules/@monaco-editor')) {
+              return 'monaco';
+            }
+          },
+        },
       },
       copyPublicDir: false,
     },

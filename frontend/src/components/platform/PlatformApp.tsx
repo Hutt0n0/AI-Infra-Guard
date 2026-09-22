@@ -13,6 +13,9 @@ import TaskDetailPage from '../../pages/TaskDetailPage';
 import LogsPage from '../../pages/LogsPage';
 import HelpDocumentPage from '../../pages/HelpDocumentPage';
 
+// Python 实验室懒加载:monaco 体积大(~5MB),不进首屏关键路径
+const IdePage = React.lazy(() => import('../../pages/IdePage'));
+
 /**
  * 平台应用 — 二级路由 + 常驻助手浮球。
  * /help 在壳内独立展示（无侧栏依赖）；其余页面挂 PlatformShell 下。
@@ -37,6 +40,11 @@ export default function PlatformApp() {
           <Route path="knowledge" element={<RuleLibraryPage />} />
           <Route path="agents" element={<AgentsPage />} />
           <Route path="logs" element={<LogsPage />} />
+          <Route path="ide" element={
+            <React.Suspense fallback={<div className="p-8 text-sm text-plat-muted">加载 Python 实验室…</div>}>
+              <IdePage />
+            </React.Suspense>
+          } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
