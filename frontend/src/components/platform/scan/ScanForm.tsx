@@ -141,8 +141,10 @@ export function ScanForm({
   const canSubmit =
     !submitting &&
     (needsContent ? (content.trim().length > 0 || attachmentFiles.length > 0) : true) &&
-    // 体检：自定义 Prompt 与评测集二选一（后端两者同时非空会报错）
-    (showCustomPrompt ? content.trim().length > 0 || !hasDataset : true) &&
+    // 体检：自定义 Prompt 与评测集至少有一个（都有时 Prompt 优先，数据集被
+    // 忽略——textarea 下方已有红字提示；后端 buildTaskParams 对 content 置空
+    // dataset，不会触发"prompt 和 data 不能同时使用"）
+    (showCustomPrompt ? content.trim().length > 0 || hasDataset : true) &&
     (!showAgent || !!selectedAgent) &&
     (!showModel || service.model === 'multi' ? true : true) && // multi 模式允许空（后端可默认）
     // 体检选 Agent 目标时必须选择具体 Agent
@@ -159,12 +161,10 @@ export function ScanForm({
           ? 'Agent / SSE 目标模式下请选择评分模型'
           : showEvaluations && redteamTargetType === 'sse' && !sseUrl.trim()
             ? '请填写 SSE 接口地址'
-            : showCustomPrompt && content.trim() && hasDataset
-            ? '自定义 Prompt 与评测数据集只能二选一，请取消数据集选择或清空 Prompt'
-            : needsContent && !content.trim() && attachmentFiles.length === 0
-            ? '请输入扫描目标或上传附件'
             : showCustomPrompt && !content.trim() && !hasDataset
             ? '请填写自定义 Prompt 或选择评测数据集'
+            : needsContent && !content.trim() && attachmentFiles.length === 0
+            ? '请输入扫描目标或上传附件'
             : '请完成必填项');
       return;
     }
@@ -433,10 +433,10 @@ export function ScanForm({
           </div>
         )}
 
-        {/* 自定义 Prompt（Model-Redteam-Report，选填）：单 case 测一条，与评测数据集互斥 */}
+        {/* 自定义 Prompt（Model-Redteam-Report，选填）：单 case 测一条；与数据集同时填时 Prompt 优先 */}
         {showCustomPrompt && (
           <div>
-            <FieldLabel>自定义 Prompt（选填，单条精测 — 与评测数据集二选一）</FieldLabel>
+            <FieldLabel>自定义 Prompt（选填，单条精测 — 与评测数据集至少填一项）</FieldLabel>
             <FieldBox className="items-start">
               <textarea
                 value={content}
