@@ -66,6 +66,18 @@ const useMcpServices = () => {
       attachmentTypes: ['.txt'],
       model: 'yes',
       modelTips: '{model}'
+    },
+    {
+      id: 'Campaign',
+      name: t('mcpServices.campaign.name'),
+      description: t('mcpServices.campaign.description'),
+      triggerWord: t('mcpServices.campaign.triggerWord'),
+      icon: 'Swords',
+      placeholderPrefix: t('mcpServices.campaign.placeholderPrefix'),
+      placeholder: t('mcpServices.campaign.placeholder', { returnObjects: true }),
+      attachmentTypes: [],
+      model: 'yes',
+      modelTips: '{model}'
     }
   ];
 
@@ -73,7 +85,7 @@ const useMcpServices = () => {
   // when the scoring-model capability is enabled (controlled by VITE_ENABLE_EVAL_MODEL,
   // defaults to isOpenSource when unset).
   const mcpServices = baseServices.map(service => {
-    if (enableEvalModel && (service.id === 'Model-Redteam-Report' || service.id === 'Model-Jailbreak')) {
+    if (enableEvalModel && (service.id === 'Model-Redteam-Report' || service.id === 'Model-Jailbreak' || service.id === 'Campaign')) {
       return {
         ...service,
         evalModel: 'yes',
@@ -94,6 +106,7 @@ export const getTaskTypeDefaultIdentifier = (taskType: string): string => {
     'Skill-Scan': 'mcp_scan',
     'AI-Infra-Scan': 'ai_infra_scan',
     'Agent-Scan': 'agent_scan',
+    'Campaign': 'campaign',
   };
   return mapping[taskType] || '';
 };

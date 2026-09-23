@@ -28,6 +28,7 @@ export default function CommandSearch({
     { key: 'mcpScan', to: '/scan/mcp' },
     { key: 'modelRedteamReport', to: '/scan/redteam' },
     { key: 'aiInfraScan', to: '/scan/infra' },
+    { key: 'campaign', to: '/scan/campaign' },
     { key: 'poisonDetect', to: '/poison-detect' },
     { key: 'knowledge', to: '/knowledge' },
     { key: 'agents', to: '/agents' },

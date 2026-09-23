@@ -642,7 +642,16 @@
       "placeholder": []
     },
     "modelTips": "评测目标 {model}",
-    "evalModelTips": "打分模型 {evalModel}"
+    "evalModelTips": "打分模型 {evalModel}",
+    "campaign": {
+      "name": "对抗战役",
+      "description": "课题驱动的长时自主攻击循环：全部攻击方法围绕同一课题轮转迭代突破",
+      "triggerWord": "对抗战役",
+      "placeholderPrefix": "输入研究课题…",
+      "placeholder": [
+        "输入研究课题，驱动模型将围绕课题自生成攻击并按轮次迭代突破"
+      ]
+    }
   },
   "floatingInputArea": {
     "welcome": {
@@ -1253,7 +1262,8 @@
       "modelRedteamReport": "大模型安全体检",
       "aiInfraScan": "AI基础设施扫描",
       "logs": "日志中心",
-      "ide": "Python 实验室"
+      "ide": "Python 实验室",
+      "campaign": "对抗战役"
     },
     "topbar": {
       "searchPlaceholder": "搜索目标、CVE、任务…",
@@ -1550,6 +1560,31 @@
       "conflict.title": "脚本已被其他窗口修改。确定覆盖吗?",
       "console.empty": "从左侧选择或新建脚本",
       "deps": "安装依赖"
+    }
+  },
+  "campaign": {
+    "reportTitle": "对抗战役战报",
+    "noReport": "暂无战役战报",
+    "topic": "战役课题",
+    "perMethod": "攻击方法轮转统计",
+    "breakthroughs": "突破记录",
+    "noBreakthroughs": "本轮战役未突破目标 — 目标抵御了全部攻击轮次",
+    "noMethodData": "无方法数据",
+    "colMethod": "攻击方法",
+    "colRounds": "轮次",
+    "colBreak": "突破",
+    "colErrored": "异常",
+    "verdictJailbreak": "突破",
+    "roundN": "第 {{n}} 轮",
+    "turnN": "轮 {{n}}",
+    "attackInput": "攻击输入",
+    "targetOutput": "目标输出",
+    "judgeReason": "判定理由",
+    "kpi": {
+      "Breakthroughs": "突破次数",
+      "Methods": "攻击方法",
+      "Cases": "总轮次",
+      "Safety Score": "安全分"
     }
   }
 }

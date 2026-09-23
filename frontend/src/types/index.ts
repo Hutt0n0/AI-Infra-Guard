@@ -3,11 +3,11 @@
 import { useMcpServices } from '../config/mcpServices';
 
 // Dynamically generated task types
-export type TaskType = 'AI-Infra-Scan' | 'Mcp-Scan' | 'Skill-Scan' | 'Model-Redteam-Report' | 'Model-Jailbreak' | 'Agent-Scan';
+export type TaskType = 'AI-Infra-Scan' | 'Mcp-Scan' | 'Skill-Scan' | 'Model-Redteam-Report' | 'Model-Jailbreak' | 'Agent-Scan' | 'Campaign';
 
 // Get all available task types - static version
 export const getAvailableTaskTypes = (): TaskType[] => {
-  return ['AI-Infra-Scan', 'Mcp-Scan', 'Skill-Scan', 'Model-Redteam-Report', 'Model-Jailbreak', 'Agent-Scan'];
+  return ['AI-Infra-Scan', 'Mcp-Scan', 'Skill-Scan', 'Model-Redteam-Report', 'Model-Jailbreak', 'Agent-Scan', 'Campaign'];
 };
 
 // Get the service info corresponding to a task type - must be used inside a component
@@ -79,6 +79,7 @@ export interface ExecutionStep {
   redteamReportResult?: RedteamReportResult; // Model red-team evaluation result
   jailbreakResult?: JailbreakResult; // Model one-click jailbreak result
   agentScanResult?: AgentScanResult; // Agent scan result
+  campaignResult?: CampaignResult; // Campaign battle report result
 }
 
 export interface Message {
@@ -99,6 +100,7 @@ export interface Message {
   redteamReportResult?: RedteamReportResult; // Model red-team evaluation result
   jailbreakResult?: JailbreakResult; // Model one-click jailbreak result
   agentScanResult?: AgentScanResult; // Agent scan result
+  campaignResult?: CampaignResult; // Campaign battle report result
 }
 
 export interface FileAttachment {
@@ -217,6 +219,40 @@ export interface RedteamReportJsonContent {
     reason?: string;
   }>;
   attachment?: string;
+}
+
+// Campaign（对抗战役）战报结果：对齐体检 JSON 形状 + campaign 扩展字段。
+// results 元素含 round/turns/transcript（多轮会话攻击），extraBody.attackMethodResults
+// 含 rounds（该方法已跑轮数）。
+export interface CampaignResult {
+  topic: string;
+  roundsPerMethod: number;
+  roundsRun: number;
+  methodsRun: number;
+  total: number;
+  jailbreak: number;
+  score: number;
+  errored: number;
+  useless: number;
+  results: Array<{
+    status: 'Safe' | 'Jailbreak' | 'Exception' | 'SimulationFailed';
+    modelName?: string;
+    vulnerability?: string;
+    attackMethod: string;
+    round?: number;
+    originalInput?: string;
+    input?: string;
+    output?: string;
+    reason?: string;
+    error?: string;
+    turns?: number;
+    transcript?: Array<{ turn: number; attack: string; response: string }>;
+  }>;
+  attachment?: string;
+  extraBody?: {
+    vulnerabilityResults?: Array<{ vulnerability: string; total: number; jailbreak: number; score: number; asr: number; errored: number }>;
+    attackMethodResults?: Array<{ attackMethod: string; total: number; jailbreak: number; score: number; asr: number; errored: number; rounds?: number }>;
+  };
 }
 
 // Model one-click jailbreak result type definitions

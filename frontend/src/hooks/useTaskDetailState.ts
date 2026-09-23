@@ -6,6 +6,7 @@ import {
   RedteamReportResult,
   JailbreakResult,
   AgentScanResult,
+  CampaignResult,
 } from '../types';
 import { useApp } from '../context/AppContext';
 
@@ -28,6 +29,7 @@ export function useTaskDetailState() {
   const [redteamReportResult, setRedteamReportResult] = useState<RedteamReportResult | undefined>(undefined);
   const [jailbreakResult, setJailbreakResult] = useState<JailbreakResult | undefined>(undefined);
   const [agentScanResult, setAgentScanResult] = useState<AgentScanResult | undefined>(undefined);
+  const [campaignResult, setCampaignResult] = useState<CampaignResult | undefined>(undefined);
 
   const currentTask = state.tasks.find(task => task.id === state.currentTaskId);
 
@@ -37,6 +39,7 @@ export function useTaskDetailState() {
     setRedteamReportResult(undefined);
     setJailbreakResult(undefined);
     setAgentScanResult(undefined);
+    setCampaignResult(undefined);
   }, []);
 
   const handleStepSelect = useCallback((step: ExecutionStep | null) => {
@@ -141,6 +144,9 @@ export function useTaskDetailState() {
         } else if (resultMessage.redteamReportResult) {
           setRedteamReportResult(resultMessage.redteamReportResult);
           setSelectedStep(null);
+        } else if (resultMessage.campaignResult) {
+          setCampaignResult(resultMessage.campaignResult);
+          setSelectedStep(null);
         } else if (resultMessage.jailbreakResult) {
           setJailbreakResult(resultMessage.jailbreakResult);
           setSelectedStep(null);
@@ -161,6 +167,7 @@ export function useTaskDetailState() {
     redteamReportResult,
     jailbreakResult,
     agentScanResult,
+    campaignResult,
     handleStepSelect,
     handleToolSelect,
     handleMcpResultSelect,

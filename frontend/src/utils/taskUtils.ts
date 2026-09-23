@@ -1,8 +1,8 @@
 // Task types that should show the model selection button
-const MODEL_SELECTION_TASK_TYPES = ['Mcp-Scan', 'Skill-Scan', 'Model-Redteam-Report', 'Model-Jailbreak', 'AI-Infra-Scan', 'Agent-Scan'] as const;
+const MODEL_SELECTION_TASK_TYPES = ['Mcp-Scan', 'Skill-Scan', 'Model-Redteam-Report', 'Model-Jailbreak', 'AI-Infra-Scan', 'Agent-Scan', 'Campaign'] as const;
 
 // Task types that should show the evalModel selection button
-const EVAL_MODEL_SELECTION_TASK_TYPES = ['Model-Redteam-Report', 'Model-Jailbreak'] as const;
+const EVAL_MODEL_SELECTION_TASK_TYPES = ['Model-Redteam-Report', 'Model-Jailbreak', 'Campaign'] as const;
 
 /**
  * Determine whether the given task type should show the model selection button

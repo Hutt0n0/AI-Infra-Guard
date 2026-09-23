@@ -22,7 +22,9 @@ function mapStatusToStepStatus(status: string): 'todo' | 'doing' | 'done' {
 function getTaskTypeFromTaskType(taskType: string): string {
   // Map the taskType returned by the API to the app's internal task type
   // Note: Skill-Scan must be checked before Mcp-Scan to avoid false matches
-  if (taskType.includes('Skill-Scan') || taskType.includes('skill')) {
+  if (taskType.includes('Campaign') || taskType.includes('campaign')) {
+    return 'Campaign';
+  } else if (taskType.includes('Skill-Scan') || taskType.includes('skill')) {
     return 'Skill-Scan';
   } else if (taskType.includes('Mcp-Scan') || taskType.includes('mcp')) {
     return 'Mcp-Scan';

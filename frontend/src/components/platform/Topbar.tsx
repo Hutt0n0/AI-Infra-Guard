@@ -14,6 +14,7 @@ const CRUMB_MAP: Record<string, { key: string; fallback: string; light: string }
   '/scan/mcp': { key: 'platform.nav.mcpScan', fallback: 'MCP扫描', light: 'MCP Scan' },
   '/scan/redteam': { key: 'platform.nav.modelRedteamReport', fallback: '大模型安全体检', light: 'LLM Security Check' },
   '/scan/infra': { key: 'platform.nav.aiInfraScan', fallback: 'AI基础设施扫描', light: 'AI Infra Scan' },
+  '/scan/campaign': { key: 'platform.nav.campaign', fallback: '对抗战役', light: 'Campaign' },
   '/scan': { key: 'platform.topbar.newScan', fallback: '新建扫描', light: 'New Scan' },
   '/reports': { key: 'platform.nav.reports', fallback: '报告中心', light: 'Reports' },
   '/knowledge': { key: 'platform.nav.knowledge', fallback: '规则库', light: 'Rule Library' },

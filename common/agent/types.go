@@ -80,6 +80,7 @@ const (
 	TaskTypeModelJailbreak     = "Model-Jailbreak"
 	TaskTypeAgentScan          = "Agent-Scan"
 	TaskTypeSkillScan          = "Skill-Scan"
+	TaskTypeCampaign           = "Campaign" // 对抗战役：课题驱动的长时自主攻击循环
 )
 
 type AgentInfo struct {

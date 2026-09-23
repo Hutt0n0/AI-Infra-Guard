@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, ListChecks, ShieldCheck, FileBarChart2,
   BookOpen, Bot, Settings, Radar, Store, FileSearch, AlertTriangle, Bug, ScrollText,
-  FlaskConical,
+  FlaskConical, Swords,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import SettingsDialog from '../SettingsDialog';
@@ -39,6 +39,7 @@ const NAV_ITEMS: NavItemDef[] = [
   { key: 'mcpScan', to: '/scan/mcp', icon: ShieldCheck, section: 'capability' },
   { key: 'modelRedteamReport', to: '/scan/redteam', icon: AlertTriangle, section: 'capability' },
   { key: 'aiInfraScan', to: '/scan/infra', icon: Bug, section: 'capability' },
+  { key: 'campaign', to: '/scan/campaign', icon: Swords, section: 'capability' },
   // 平台级能力（非任务型）
   { key: 'poisonDetect', to: '/poison-detect', icon: Radar, section: 'capability' },
   { key: 'skillMarket', to: 'external:https://matrix.tencent.com/skill-market', icon: Store, section: 'capability' },
