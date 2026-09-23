@@ -52,6 +52,8 @@ const (
 	WSMsgTypeActionLog    = "actionLog"    // 日志
 	WSMsgTypeError        = "error"        // 日志
 	WSMsgTypeMessageTrace = "messageTrace" // 与受测 agent/LLM API 的消息通信 trace
+	// WSMsgTypeCampaignNotice 对抗战役通知（战况摘要 / 指令回执）
+	WSMsgTypeCampaignNotice = "campaignNotice"
 )
 
 // Agent 端事件消息（Agent -> Server，直接使用 task.go 中的结构体）
@@ -244,7 +246,7 @@ func (ac *AgentConnection) handleConnection(am *AgentManager) {
 				return
 			}
 			ac.stateMu.RUnlock()
-		case WSMsgTypeLiveStatus, WSMsgTypePlanUpdate, WSMsgTypeNewPlanStep, WSMsgTypeStatusUpdate, WSMsgTypeToolUsed, WSMsgTypeResultUpdate, WSMsgTypeActionLog, WSMsgTypeError, WSMsgTypeMessageTrace:
+		case WSMsgTypeLiveStatus, WSMsgTypePlanUpdate, WSMsgTypeNewPlanStep, WSMsgTypeStatusUpdate, WSMsgTypeToolUsed, WSMsgTypeResultUpdate, WSMsgTypeActionLog, WSMsgTypeError, WSMsgTypeMessageTrace, WSMsgTypeCampaignNotice:
 			// 所有事件类型都统一处理
 			ac.handleAgentEvent(am, wsMsg.Content, wsMsg.Type)
 		default:

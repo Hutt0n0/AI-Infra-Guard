@@ -180,9 +180,12 @@ func (m *CampaignTask) Execute(ctx context.Context, request TaskRequest, callbac
 	if err != nil {
 		return fmt.Errorf("resolve uv binary: %v", err)
 	}
-	// upload=true：战报 CSV 附件自动上传并改写为服务端 URL（体检同款链路）
-	err = utils.RunCmdWithContext(ctx, promptSecurityDir, uvBin, argv, func(line string) {
+	// upload=true：战报 CSV 附件自动上传并改写为服务端 URL（体检同款链路）。
+	// stdin 变体：ctx 里的 CommandCh（agent 的 task_command 投递）逐行写入
+	// Python stdin，供战役循环接收运行中指令（转向/延长轮次）。
+	// 非任务派生 ctx（直接 SDK 调用）通道为 nil，stdin 路径自然跳过。
+	err = utils.RunCmdWithContextStdin(ctx, promptSecurityDir, uvBin, argv, func(line string) {
 		ParseStdoutLine(m.Server, promptSecurityDir, tasks, line, callbacks, &config, true)
-	})
+	}, CommandChFromCtx(ctx))
 	return err
 }

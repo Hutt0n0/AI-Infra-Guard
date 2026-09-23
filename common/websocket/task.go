@@ -1062,3 +1062,53 @@ func HandleDownloadFile(c *gin.Context, tm *TaskManager) {
 
 	// 文件下载成功，响应头已在DownloadFile方法中设置
 }
+
+// HandleTaskCommand 处理运行中指令下发（仅对抗战役任务）：
+// POST /api/v1/app/tasks/:sessionId/command  body: {op, text?, n?, commandId?}
+func HandleTaskCommand(c *gin.Context, tm *TaskManager) {
+	traceID := getTraceID(c)
+	sessionId := c.Param("sessionId")
+	if sessionId == "" {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "会话ID不能为空", "data": nil})
+		return
+	}
+	if !isValidSessionID(sessionId) {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "无效的会话ID格式", "data": nil})
+		return
+	}
+
+	var body struct {
+		Op        string `json:"op"`
+		Text      string `json:"text"`
+		N         int    `json:"n"`
+		CommandId string `json:"commandId"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "无效的请求体: " + err.Error(), "data": nil})
+		return
+	}
+	if body.Op != "instruction" && body.Op != "extend_rounds" {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "不支持的指令类型（op）", "data": nil})
+		return
+	}
+	if body.Op == "instruction" && strings.TrimSpace(body.Text) == "" {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "指令内容不能为空", "data": nil})
+		return
+	}
+	if body.Op == "extend_rounds" && body.N <= 0 {
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "延长轮数必须为正整数", "data": nil})
+		return
+	}
+
+	username := c.GetString("username")
+	log.Infof("用户下发任务指令: trace_id=%s, sessionId=%s, op=%s, username=%s", traceID, sessionId, body.Op, username)
+
+	err := tm.SendTaskCommand(sessionId, username, traceID, body.Op, body.Text, body.N, body.CommandId)
+	if err != nil {
+		log.Errorf("任务指令下发失败: trace_id=%s, sessionId=%s, error=%v", traceID, sessionId, err)
+		c.JSON(http.StatusOK, gin.H{"status": 1, "message": "指令下发失败: " + err.Error(), "data": nil})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": 0, "message": "指令已下发", "data": nil})
+}

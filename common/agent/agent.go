@@ -63,6 +63,20 @@ type TaskContext struct {
 	Cancel    context.CancelFunc
 	Result    interface{}
 	Error     error
+	// CommandCh 运行中指令通道：task_command 消息投递入口（buffered-16，
+	// 非阻塞发送；由任务 executor 经 ctx value 取用写入子进程 stdin）
+	CommandCh chan string
+}
+
+// cmdChKey ctx value key：把 CommandCh 递给 TaskInterface.Execute
+// （Execute 签名无 TaskContext，ctx value 是最小侵入接线）
+type cmdChKey struct{}
+
+// CommandChFromCtx 从任务 ctx 取指令通道；非任务派生的 ctx 返回 nil
+// （直接 SDK 调用/其他任务类型无指令通道，stdin 路径自然跳过）
+func CommandChFromCtx(ctx context.Context) chan string {
+	ch, _ := ctx.Value(cmdChKey{}).(chan string)
+	return ch
 }
 
 // AgentConfig Agent配置
@@ -277,8 +291,11 @@ func (a *Agent) processMessage(data []byte) error {
 			Progress:  0,
 			StartTime: time.Now(),
 			Cancel:    cancel,
+			CommandCh: make(chan string, 16),
 		}
 		a.Tasks = append(a.Tasks, taskContext)
+		// 指令通道挂进任务 ctx：executor（如 CampaignTask）经 CommandChFromCtx 取用
+		taskCtx = context.WithValue(taskCtx, cmdChKey{}, taskContext.CommandCh)
 		for _, taskFunc := range a.taskFunc {
 			if taskType == taskFunc.GetName() {
 				gologger.Debugln("执行任务", taskFunc.GetName())
@@ -312,6 +329,9 @@ func (a *Agent) processMessage(data []byte) error {
 					},
 					MessageTraceCallback: func(event MessageTraceEvent) {
 						a.SendMessageTrace(task.SessionId, event)
+					},
+					CampaignNoticeCallback: func(event CampaignNoticeEvent) {
+						a.SendCampaignNotice(task.SessionId, event)
 					},
 					ErrorCallback: func(error string) {
 						a.SendError(task.SessionId, error)
@@ -348,6 +368,37 @@ func (a *Agent) processMessage(data []byte) error {
 		}
 		if !a.cancelTask(terminateReq.SessionID) {
 			gologger.Warningf("未找到可终止的任务: sessionId=%s", terminateReq.SessionID)
+		}
+	case ServerMsgTypeTaskCommand:
+		// 运行中指令（仅 Campaign 消费）：投递到任务的 CommandCh，
+		// executor 写入子进程 stdin，Python 在 case 边界消费。
+		var cmdReq TaskCommandRequest
+		if err := json.Unmarshal(baseMsg.Content, &cmdReq); err != nil {
+			return err
+		}
+		if cmdReq.SessionID == "" {
+			return fmt.Errorf("task_command message missing session_id")
+		}
+		task := a.GetTaskBySessionId(cmdReq.SessionID)
+		if task == nil || task.CommandCh == nil {
+			gologger.Warningf("task_command: 未找到运行中任务 sessionId=%s", cmdReq.SessionID)
+			return nil
+		}
+		payload, mErr := json.Marshal(map[string]interface{}{
+			"op":        cmdReq.Op,
+			"text":      cmdReq.Text,
+			"n":         cmdReq.N,
+			"commandId": cmdReq.CommandID,
+		})
+		if mErr != nil {
+			return mErr
+		}
+		select {
+		case task.CommandCh <- string(payload):
+			gologger.Debugf("task_command 已投递: sessionId=%s op=%s", cmdReq.SessionID, cmdReq.Op)
+		default:
+			// 队列满 = Python 循环卡死；丢指令也不阻塞 WS 读循环
+			gologger.Warningf("task_command: 指令队列已满，丢弃 sessionId=%s op=%s", cmdReq.SessionID, cmdReq.Op)
 		}
 	default:
 		return nil
@@ -687,5 +738,30 @@ func (a *Agent) SendMessageTrace(sessionId string, event MessageTraceEvent) erro
 
 	// 通过发送通道发送消息
 	a.sendChan <- messageTraceContent
+	return nil
+}
+
+// SendCampaignNotice 发送对抗战役通知（战况摘要 / 指令回执）
+func (a *Agent) SendCampaignNotice(sessionId string, event CampaignNoticeEvent) error {
+	timestamp := time.Now().Unix()
+	msgId := uuid.New().String()
+	event.ID = msgId
+	event.Type = AgentMsgTypeCampaignNotice
+	event.Timestamp = timestamp
+
+	noticeUpdate := CampaignNoticeUpdate{
+		ID:        msgId,
+		Type:      "event",
+		SessionId: sessionId,
+		Timestamp: timestamp,
+		Event:     event,
+	}
+
+	noticeContent := CampaignNoticeContent{
+		Type:    AgentMsgTypeCampaignNotice,
+		Content: noticeUpdate,
+	}
+
+	a.sendChan <- noticeContent
 	return nil
 }

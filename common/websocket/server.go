@@ -251,6 +251,10 @@ func RunWebServer(options *version.Options) {
 				tasks.POST("/:sessionId/terminate", func(c *gin.Context) {
 					HandleTerminateTask(c, taskManager)
 				})
+				// 运行中指令下发接口（仅对抗战役：转向 / 延长轮次）
+				tasks.POST("/:sessionId/command", func(c *gin.Context) {
+					HandleTaskCommand(c, taskManager)
+				})
 			}
 			// 模型管理
 			models := appSecurity.Group("/models")

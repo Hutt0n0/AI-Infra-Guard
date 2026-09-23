@@ -73,6 +73,24 @@ type CmdMessageTrace struct {
 	Meta          string `json:"meta,omitempty"`
 }
 
+// CmdCampaignNotice 对抗战役通知（Python campaignNotice 事件的 stdout 形状，
+// 与 cli/aig_logger.py::campaignNotice 字段对齐）
+type CmdCampaignNotice struct {
+	Kind         string   `json:"kind"`
+	Op           string   `json:"op,omitempty"`
+	CommandId    string   `json:"commandId,omitempty"`
+	Status       string   `json:"status,omitempty"`
+	Message      string   `json:"message,omitempty"`
+	Method       string   `json:"method,omitempty"`
+	Round        int      `json:"round,omitempty"`
+	Rounds       int      `json:"rounds,omitempty"`
+	Verdict      string   `json:"verdict,omitempty"`
+	Score        *float64 `json:"score,omitempty"`
+	Reason       string   `json:"reason,omitempty"`
+	Breakthrough bool     `json:"breakthrough,omitempty"`
+	StepId       string   `json:"stepId,omitempty"`
+}
+
 type CmdContent struct {
 	Type    string          `json:"type"`
 	Content json.RawMessage `json:"content"`
@@ -208,6 +226,34 @@ func ParseStdoutLine(server, rootDir string, tasks []SubTask, line string, callb
 		}
 		if callbacks.MessageTraceCallback != nil {
 			callbacks.MessageTraceCallback(event)
+		}
+	case AgentMsgTypeCampaignNotice:
+		// 对抗战役通知：战况摘要（chat 卡片）/ 指令回执（system 气泡）
+		var content CmdCampaignNotice
+		if err := json.Unmarshal(cmd.Content, &content); err != nil {
+			gologger.WithError(err).Errorln("Failed to AgentMsgTypeCampaignNotice unmarshal command", cmd.Content)
+			return
+		}
+		event := CampaignNoticeEvent{
+			ID:           uuid.NewString(),
+			Type:         AgentMsgTypeCampaignNotice,
+			Timestamp:    time.Now().Unix(),
+			Kind:         content.Kind,
+			Op:           content.Op,
+			CommandId:    content.CommandId,
+			Status:       content.Status,
+			Message:      content.Message,
+			Method:       content.Method,
+			Round:        content.Round,
+			Rounds:       content.Rounds,
+			Verdict:      content.Verdict,
+			Score:        content.Score,
+			Reason:       content.Reason,
+			Breakthrough: content.Breakthrough,
+			PlanStepId:   content.StepId,
+		}
+		if callbacks.CampaignNoticeCallback != nil {
+			callbacks.CampaignNoticeCallback(event)
 		}
 	case AgentMsgTypeResultUpdate:
 		for i, _ := range tasks {
