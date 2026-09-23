@@ -68,9 +68,29 @@ class resultUpdate(contentSchema):
     content: str | dict | list
     status: bool | None = None
 
+class campaignNotice(contentSchema):
+    """对抗战役专用通知：每 (方法,轮次) 一条战况摘要 + 指令回执。
+
+    经 log_always 输出（不受 disable 影响）。Go ParseStdoutLine 对未知
+    类型静默忽略——扩展本 schema 时必须同步扩展下方 PromptSecurityLog
+    的 type Literal，否则 log_always 校验失败会静默吞掉事件。"""
+    kind: Literal["round_summary", "command_ack"]
+    op: str = ""                 # 指令类型（ack）：instruction | extend_rounds
+    commandId: str = ""          # 指令回执关联 ID（ack）
+    status: str = ""             # ack: applied | rejected
+    message: str = ""            # ack: 人类可读回执文案
+    method: str = ""             # summary: 攻击方法
+    round: int = 0               # summary: 轮次
+    rounds: int = 0              # summary: 当前轮次预算
+    verdict: str = ""            # summary: Jailbreak | Safe | Exception | SimulationFailed
+    score: float | None = None   # summary: 判定分数
+    reason: str = ""             # summary: 判定理由（截断）
+    breakthrough: bool = False   # summary: 是否突破
+    stepId: str = ""             # summary: 控制台 worker 子步 ID
+
 class PromptSecurityLog(BaseModel):
-    type: Literal["error", "newPlanStep", "statusUpdate", "toolUsed", "actionLog", "resultUpdate", "messageTrace"]
-    content: Union[str, newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate, messageTrace]
+    type: Literal["error", "newPlanStep", "statusUpdate", "toolUsed", "actionLog", "resultUpdate", "messageTrace", "campaignNotice"]
+    content: Union[str, newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate, messageTrace, campaignNotice]
 
 class PromptSecurityLogger:
     def __init__(self, base_logger, lang='en_US'):
