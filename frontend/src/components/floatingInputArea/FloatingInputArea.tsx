@@ -65,6 +65,12 @@ interface FloatingInputAreaProps {
   onEvalModelSelect?: (model: ModelItem) => void;
   onTaskTypeChange?: (taskType: string) => void;
   currentTaskId?: string | null;
+  /** followUpMode：对抗战役运行中指令模式——任务进行中仍可输入，
+   *  输入经 onFollowUpSend 作为运行中指令下发（不创建新任务）。
+   *  关闭时全部行为与原先恒等（其他任务类型零回归）。 */
+  followUpMode?: boolean;
+  /** followUpMode 下的快捷操作：延长轮次预算 */
+  onExtendRounds?: (n: number) => void;
   currentTaskStatus?: 'pending' | 'running' | 'completed' | 'error' | 'done' | 'terminated';
   currentTask?: any; // Add the currentTask prop
   httpHeaders?: { key: string; value: string }[];
@@ -182,6 +188,8 @@ const FloatingInputArea: React.FC<FloatingInputAreaProps> = ({
   currentTaskId,
   currentTaskStatus,
   currentTask,
+  followUpMode = false,
+  onExtendRounds,
   httpHeaders = [],
   onHttpHeadersChange,
   selectedMcpService,
@@ -210,6 +218,11 @@ const FloatingInputArea: React.FC<FloatingInputAreaProps> = ({
   
   // Handle send button clicks and add task-type validation
   const handleSendWithValidation = () => {
+    // Follow-up mode（对抗战役运行中指令）：不要求选择任务类型
+    if (followUpMode) {
+      handleSend();
+      return;
+    }
     // Check whether a task type has been selected (detected via @-mentions)
     if (!taskType) {
       toast.error(t('floatingInputArea.buttons.selectTaskTypeFirst'));
@@ -1646,7 +1659,8 @@ const FloatingInputArea: React.FC<FloatingInputAreaProps> = ({
   };
 
   // Do not render FloatingInputArea when a task id is set
-  if (currentTaskId) {
+  // （followUpMode 例外：对抗战役运行中仍需输入指令）
+  if (currentTaskId && !followUpMode) {
     return null;
   }
 
@@ -1765,6 +1779,23 @@ const FloatingInputArea: React.FC<FloatingInputAreaProps> = ({
             </h3>
           </div>
         )}
+        {/* Follow-up quick actions（对抗战役运行中指令模式） */}
+        {followUpMode && (
+          <div className="mb-2 flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500">{t('chatArea.campaignRunningHint')}</span>
+            {[3, 5].map(n => (
+              <button
+                key={n}
+                type="button"
+                disabled={isSending}
+                onClick={() => onExtendRounds?.(n)}
+                className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+              >
+                {t('chatArea.extendRounds').replace('{n}', String(n))}
+              </button>
+            ))}
+          </div>
+        )}
         <div className={`relative flex-1 border border-gray-200 text-gray-900 placeholder-gray-500 py-4 pb-20 ${borderRadius} bg-white w-full ${isCenterMode ? 'max-w-[1200px] mx-auto' : ''} ${welcomeAnimationActive ? 'animate-pulse-twice' : ''}`} style={{boxShadow: 'rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.06) 0px 2px 5px 0px, rgba(0, 0, 0, 0.01) 0px 4px 4px 0px',}}>
           
           <div className='flex'>
@@ -1825,14 +1856,14 @@ const FloatingInputArea: React.FC<FloatingInputAreaProps> = ({
               onChange={handleInputChange}
               onBlur={handleInputBlur}
               onKeyDown={e => {
-                if (e.key === '@') {
+                if (e.key === '@' && !followUpMode) {
                   e.preventDefault();
                   setShowMcpMenu(true);
                 }
               }}
-              placeholder=""
-              disabled={!!currentTaskId || isSending}
-              className={`text-gray-900 placeholder-gray-500 border-0 shadow-none px-4 resize-none overflow-hidden hover:border-0 w-full focus:border-0 focus:shadow-none focus:ring-0 focus:outline-none ${isCenterMode ? 'rounded-[40px]' : ''} ${!!currentTaskId || isSending ? 'cursor-not-allowed bg-transparent' : ''}`}
+              placeholder={followUpMode ? t('chatArea.campaignFollowUpPlaceholder') : ""}
+              disabled={(!followUpMode && !!currentTaskId) || isSending}
+              className={`text-gray-900 placeholder-gray-500 border-0 shadow-none px-4 resize-none overflow-hidden hover:border-0 w-full focus:border-0 focus:shadow-none focus:ring-0 focus:outline-none ${isCenterMode ? 'rounded-[40px]' : ''} ${(!followUpMode && !!currentTaskId) || isSending ? 'cursor-not-allowed bg-transparent' : ''}`}
               style={{ 
                 minHeight: '48px',
                 maxHeight: '120px',
@@ -2740,9 +2771,11 @@ const FloatingInputArea: React.FC<FloatingInputAreaProps> = ({
                   <Button
                     onClick={handleSendWithValidation}
                     disabled={
-                      !!currentTaskId ||
+                      (!followUpMode && !!currentTaskId) ||
                       isSending ||
-                      (taskType === 'Agent-Scan'
+                      (followUpMode
+                        ? !input.trim()
+                        : taskType === 'Agent-Scan'
                         ? !selectedAgent || (isMultiSelect() ? selectedModels.length === 0 : !selectedModel)
                         : taskType !== 'Model-Redteam-Report' && !input.trim() && attachments.length === 0)
                     }

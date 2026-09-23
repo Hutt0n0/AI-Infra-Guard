@@ -63,6 +63,9 @@ type PlanUpdateCallback func(tasks []SubTask)
 // MessageTraceCallback 消息通信 trace 回调函数类型
 type MessageTraceCallback func(trace MessageTraceEvent)
 
+// CampaignNoticeCallback 对抗战役通知（战况摘要 / 指令回执）
+type CampaignNoticeCallback func(event CampaignNoticeEvent)
+
 type ErrorCallback func(error string)
 
 // TaskCallbacks 任务回调函数集合
@@ -74,6 +77,7 @@ type TaskCallbacks struct {
 	StepStatusUpdateCallback StatusUpdateCallback // 更新步骤状态回调
 	PlanUpdateCallback       PlanUpdateCallback   // 更新任务计划回调
 	MessageTraceCallback     MessageTraceCallback // 消息通信 trace 回调
+	CampaignNoticeCallback   CampaignNoticeCallback // 对抗战役通知回调（战况摘要/指令回执）
 	ErrorCallback            ErrorCallback        // 错误回调
 }
 

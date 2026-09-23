@@ -52,8 +52,27 @@ export type SseEventType =
   | 'resultUpdate'
   | 'actionLog'
   | 'messageTrace'
+  | 'campaignNotice'
   | 'error'
   | 'task_progress';
+
+/** 运行中指令（仅对抗战役）：转向 / 延长轮次 */
+export interface TaskCommandPayload {
+  op: 'instruction' | 'extend_rounds';
+  text?: string;
+  n?: number;
+  commandId: string;
+}
+
+/** 向运行中的对抗战役任务下发指令（POST /tasks/:id/command） */
+export async function sendTaskCommand(sessionId: string, payload: TaskCommandPayload): Promise<{ status: number; message?: string }> {
+  const response = await fetch(`${API_BASE}/${sessionId}/command`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return response.json();
+}
 
 // ============ 状态映射（与 AppContext 内部约定一致） ============
 
@@ -243,6 +262,41 @@ export function assembleTaskFromDetail(taskData: TaskDetailRaw) {
           timestamp: rawTimestamp
             ? new Date(rawTimestamp > 1e12 ? rawTimestamp : rawTimestamp * 1000)
             : (msg.timestamp ? new Date(msg.timestamp) : new Date()),
+        } as Message);
+      }
+    }
+    // campaignNotice（对抗战役）：战况摘要 → campaign_notice 消息卡片；
+    // 指令回执 → system 气泡。不映射则刷新后 chat 中的卡片丢失。
+    if (msg.type === 'campaignNotice' && msg.event?.kind) {
+      const rawTimestamp = msg.event.timestamp;
+      const ts = rawTimestamp
+        ? new Date(rawTimestamp > 1e12 ? rawTimestamp : rawTimestamp * 1000)
+        : (msg.timestamp ? new Date(msg.timestamp) : new Date());
+      if (msg.event.kind === 'round_summary') {
+        statusMessages.push({
+          id: msg.event.id || Math.random().toString(),
+          type: 'campaign_notice',
+          brief: msg.event.verdict || '',
+          content: msg.event.reason || '',
+          campaignNotice: {
+            kind: 'round_summary',
+            method: msg.event.method || '',
+            round: msg.event.round || 0,
+            rounds: msg.event.rounds || 0,
+            verdict: msg.event.verdict || '',
+            score: msg.event.score ?? null,
+            reason: msg.event.reason || '',
+            breakthrough: !!msg.event.breakthrough,
+          },
+          timestamp: ts,
+        } as Message);
+      } else if (msg.event.kind === 'command_ack') {
+        statusMessages.push({
+          id: msg.event.id || Math.random().toString(),
+          type: 'system',
+          brief: msg.event.status === 'rejected' ? '指令未生效' : '指令已生效',
+          content: msg.event.message || '',
+          timestamp: ts,
         } as Message);
       }
     }
@@ -496,6 +550,7 @@ export function openTaskSSE(
   listen('resultUpdate', data => Boolean(data.event?.result));
   listen('actionLog', data => Boolean(data.event?.planStepId));
   listen('messageTrace', data => Boolean(data.event));
+  listen('campaignNotice', data => Boolean(data.event));
   listen('error');
   listen('task_progress');
 

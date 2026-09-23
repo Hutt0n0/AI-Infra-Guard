@@ -485,6 +485,18 @@ func RunCmd(dir, name string, arg []string, callback func(line string)) error {
 // 任务已终止、攻击仍在持续）。Setpgid 把子进程放入独立进程组后，可对整个组
 // 发信号，确保 uv 及其所有后代一起退出。
 func RunCmdWithContext(ctx context.Context, dir, name string, arg []string, callback func(line string)) error {
+	return runCmd(ctx, dir, name, arg, callback, nil)
+}
+
+// RunCmdWithContextStdin 在 RunCmdWithContext 基础上增加 stdin 写入通道：
+// 每个写入的 string 会以一行（自动补 \n）送入子进程 stdin，供长时运行任务
+// 接收运行中指令（如对抗战役的 instruction / extend_rounds）。
+// 通道关闭或 ctx 取消时写端关闭 → 子进程读到 EOF。
+func RunCmdWithContextStdin(ctx context.Context, dir, name string, arg []string, callback func(line string), stdinCh <-chan string) error {
+	return runCmd(ctx, dir, name, arg, callback, stdinCh)
+}
+
+func runCmd(ctx context.Context, dir, name string, arg []string, callback func(line string), stdinCh <-chan string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -504,6 +516,32 @@ func RunCmdWithContext(ctx context.Context, dir, name string, arg []string, call
 		return err
 	}
 	cmd.Stderr = cmd.Stdout // 将错误输出合并到标准输出
+
+	// stdin 指令通道：写 goroutine 把通道里的行写入子进程 stdin。
+	// 写端仅在 ctx 取消 / 通道关闭 / 写错误时关闭（EOF 语义）；
+	// 阻塞中的 Write 在进程死亡后因 EPIPE 自行返回，无泄漏。
+	if stdinCh != nil {
+		stdinPipe, pipeErr := cmd.StdinPipe()
+		if pipeErr != nil {
+			return pipeErr
+		}
+		go func() {
+			defer stdinPipe.Close()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case line, ok := <-stdinCh:
+					if !ok {
+						return
+					}
+					if _, err := stdinPipe.Write(append([]byte(line), '\n')); err != nil {
+						return // 子进程已退出（EPIPE）或管道异常
+					}
+				}
+			}
+		}()
+	}
 
 	// 启动扫描器goroutine
 	scanner := bufio.NewScanner(stdout)

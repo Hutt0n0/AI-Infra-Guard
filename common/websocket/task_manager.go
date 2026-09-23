@@ -1715,3 +1715,69 @@ func maskParamsToken(params map[string]interface{}) {
 	}
 }
 
+
+// SendTaskCommand 向运行中的对抗战役任务投递运行中指令（转向/延长轮次）。
+// 链路：REST → 本方法 → agent WS task_command → agent CommandCh → Python stdin。
+func (tm *TaskManager) SendTaskCommand(sessionId, username, traceID, op, text string, n int, commandId string) error {
+	log.Infof("发送任务指令: trace_id=%s, sessionId=%s, op=%s, username=%s", traceID, sessionId, op, username)
+
+	session, err := tm.taskStore.GetSession(sessionId)
+	if err != nil {
+		log.Errorf("任务不存在: trace_id=%s, sessionId=%s", traceID, sessionId)
+		return fmt.Errorf("任务不存在")
+	}
+	if session.Username != username {
+		log.Errorf("无权限下发指令: trace_id=%s, sessionId=%s, username=%s, owner=%s", traceID, sessionId, username, session.Username)
+		return fmt.Errorf("无权限操作此任务")
+	}
+	if isTerminalTaskStatus(session.Status) {
+		return fmt.Errorf("任务已结束，无法下发指令")
+	}
+	if session.TaskType != agent.TaskTypeCampaign {
+		return fmt.Errorf("仅对抗战役任务支持运行中指令")
+	}
+	if session.AssignedAgent == "" {
+		return fmt.Errorf("任务尚未分发到 Agent")
+	}
+
+	tm.sendCommandToAgent(session.AssignedAgent, sessionId, traceID, op, text, n, commandId)
+	return nil
+}
+
+// sendCommandToAgent 经 WS 把 task_command 推给持有该任务的 agent（镜像 notifyAgentToTerminate）
+func (tm *TaskManager) sendCommandToAgent(agentID, sessionId, traceID, op, text string, n int, commandId string) {
+	availableAgents := tm.agentManager.GetAvailableAgents()
+	for _, agent := range availableAgents {
+		agent.stateMu.RLock()
+		currentAgentID := agent.agentID
+		isActive := agent.isActive
+		agent.stateMu.RUnlock()
+		if currentAgentID == agentID && isActive {
+			content := map[string]interface{}{
+				"session_id": sessionId,
+				"op":         op,
+			}
+			if text != "" {
+				content["text"] = text
+			}
+			if n > 0 {
+				content["n"] = n
+			}
+			if commandId != "" {
+				content["commandId"] = commandId
+			}
+			cmdMsg := WSMessage{
+				Type:    "task_command",
+				Content: content,
+			}
+			agent.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := agent.conn.WriteJSON(cmdMsg); err != nil {
+				log.Errorf("发送任务指令给Agent %s失败: %v", agentID, err)
+			} else {
+				log.Infof("任务指令已发送给Agent %s: trace_id=%s, sessionId=%s, op=%s", agentID, traceID, sessionId, op)
+			}
+			return
+		}
+	}
+	log.Warnf("未找到可下发指令的Agent连接: trace_id=%s, sessionId=%s, agentId=%s", traceID, sessionId, agentID)
+}

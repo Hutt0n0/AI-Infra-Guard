@@ -354,7 +354,15 @@
     "deleteRequestFailed": "Delete request failed",
     "renameFailed": "Rename failed",
     "deleteFailed": "Delete failed",
-    "downloadFileFailed": "Download file failed"
+    "downloadFileFailed": "Download file failed",
+    "campaignFollowUpPlaceholder": "Type a mid-run instruction (e.g. change angle, focus a surface)…",
+    "campaignRunningHint": "Campaign running — instructions apply from the next case:",
+    "extendRounds": "Extend {n} rounds",
+    "extendRoundsMessage": "Extend rounds +{n}",
+    "commandAccepted": "Command applied",
+    "commandRejected": "Command not applied",
+    "commandSendError": "Failed to send command, try again later",
+    "campaignRoundN": "Round {r}/{n}"
   },
   "jailbreak": {
     "title": "Jailbreak Test",

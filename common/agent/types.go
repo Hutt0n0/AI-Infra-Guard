@@ -38,6 +38,10 @@ const (
 	ServerMsgTypeRegisterResp = "register_ack" // 注册响应
 	ServerMsgTypeTaskAssign   = "task_assign"  // 任务分配
 	ServerMsgTypeTerminate    = "terminate"    // 终止任务
+	ServerMsgTypeTaskCommand  = "task_command" // 运行中指令（Campaign 转向/延长轮次）
+
+	// Agent -> Server 消息类型（campaignNotice：战役战况摘要/指令回执）
+	AgentMsgTypeCampaignNotice = "campaignNotice"
 )
 
 // 任务状态枚举
@@ -115,6 +119,16 @@ type ResponseData struct {
 type TerminateTaskRequest struct {
 	SessionID string `json:"session_id"`
 	Reason    string `json:"reason"`
+}
+
+// TaskCommandRequest 运行中指令（server → agent → 任务 stdin）。
+// 仅 Campaign 任务消费；op: instruction（转向文本）| extend_rounds（延长轮次）
+type TaskCommandRequest struct {
+	SessionID string `json:"session_id"`
+	Op        string `json:"op"`
+	Text      string `json:"text,omitempty"`
+	N         int    `json:"n,omitempty"`
+	CommandID string `json:"commandId,omitempty"`
 }
 
 // Disconnect Agent断开
@@ -365,4 +379,41 @@ type MessageTraceUpdate struct {
 type MessageTraceContent struct {
 	Type    string            `json:"type"`    // 固定为"messageTrace"
 	Content MessageTraceUpdate `json:"content"` // trace 数据
+}
+
+// CampaignNoticeEvent 对抗战役通知事件（agent → server → SSE → chat 卡片）。
+// kind=round_summary：每 (方法,轮次) 一条战况摘要；kind=command_ack：指令回执。
+// 字段与 AIG-PromptSecurity/cli/aig_logger.py::campaignNotice 对齐。
+type CampaignNoticeEvent struct {
+	ID           string   `json:"id"`
+	Type         string   `json:"type"`
+	Timestamp    int64    `json:"timestamp"`
+	Kind         string   `json:"kind"`                   // round_summary | command_ack
+	Op           string   `json:"op,omitempty"`           // ack: instruction | extend_rounds
+	CommandId    string   `json:"commandId,omitempty"`    // ack: 回执关联 ID
+	Status       string   `json:"status,omitempty"`       // ack: applied | rejected
+	Message      string   `json:"message,omitempty"`      // ack: 人类可读文案
+	Method       string   `json:"method,omitempty"`       // summary: 攻击方法
+	Round        int      `json:"round,omitempty"`        // summary: 轮次
+	Rounds       int      `json:"rounds,omitempty"`       // summary: 当前轮次预算
+	Verdict      string   `json:"verdict,omitempty"`      // summary: 判定
+	Score        *float64 `json:"score,omitempty"`        // summary: 判定分数
+	Reason       string   `json:"reason,omitempty"`       // summary: 判定理由（截断）
+	Breakthrough bool     `json:"breakthrough,omitempty"` // summary: 是否突破
+	PlanStepId   string   `json:"planStepId,omitempty"`   // summary: worker 子步 ID
+}
+
+// CampaignNoticeUpdate 战役通知更新消息（前端格式，镜像 MessageTraceUpdate）
+type CampaignNoticeUpdate struct {
+	ID        string              `json:"id"`
+	Type      string              `json:"type"` // 固定为"event"
+	SessionId string              `json:"sessionId"`
+	Timestamp int64               `json:"timestamp"`
+	Event     CampaignNoticeEvent `json:"event"`
+}
+
+// CampaignNoticeContent Agent发送给服务器的战役通知内容
+type CampaignNoticeContent struct {
+	Type    string               `json:"type"` // 固定为"campaignNotice"
+	Content CampaignNoticeUpdate `json:"content"`
 }

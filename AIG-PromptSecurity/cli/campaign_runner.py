@@ -32,13 +32,15 @@ messageTrace/resultUpdate），Go ParseStdoutLine 无需任何改动。
 import asyncio
 import json
 import os
+import sys
+import threading
 import time
 import uuid
 from typing import Any, Dict, List, Optional
 
 from cli.aig_logger import logger
 from cli.aig_logger import (
-    newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate
+    newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate, campaignNotice
 )
 from cli.trace_utils import traced_async_model_callback, set_trace_context
 from deepteam.red_teamer import RedTeamer
@@ -335,6 +337,73 @@ def _base26_name(method_index: int) -> str:
     return "".join(reversed(chars))
 
 
+class CommandChannel:
+    """stdin 指令通道：daemon 线程阻塞读行 → call_soon_threadsafe 入队 →
+    循环在 case 边界非阻塞 drain。stdin 关闭（EOF）= 哨兵置 closed。
+
+    指令行格式（Go 侧 agent 经 stdin 写入）：{"op": "instruction"|"extend_rounds",
+    "text": str, "n": int, "commandId": str}。
+    """
+
+    def __init__(self):
+        self.queue: Optional[asyncio.Queue] = None
+        self.closed = False  # stdin EOF（进程将随管线关闭而自然结束）
+
+    def start(self, loop: asyncio.AbstractEventLoop) -> None:
+        self.queue = asyncio.Queue(maxsize=64)
+        t = threading.Thread(target=self._read_stdin, args=(loop,), daemon=True)
+        t.start()
+
+    def _read_stdin(self, loop: asyncio.AbstractEventLoop) -> None:
+        try:
+            for line in sys.stdin:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    cmd = json.loads(line)
+                    op = cmd.get("op")
+                    if op not in ("instruction", "extend_rounds"):
+                        continue
+                    entry = {
+                        "op": op,
+                        "text": str(cmd.get("text") or ""),
+                        "n": cmd.get("n"),
+                        "commandId": str(cmd.get("commandId") or ""),
+                    }
+                except Exception:
+                    continue
+                loop.call_soon_threadsafe(self._enqueue, entry)
+        except Exception:
+            pass
+        finally:
+            # EOF / 读线程退出：哨兵，循环收到后置 closed
+            loop.call_soon_threadsafe(self._enqueue, None)
+
+    def _enqueue(self, entry: Optional[Dict[str, Any]]) -> None:
+        if self.queue is None:
+            return
+        try:
+            self.queue.put_nowait(entry)
+        except asyncio.QueueFull:
+            pass  # 队满丢弃：循环卡死时写方无法自救，不阻塞读线程
+
+    async def drain(self) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        if self.queue is None:
+            return out
+        while True:
+            try:
+                item = self.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            if item is None:
+                self.closed = True
+                break
+            out.append(item)
+        return out
+
+
 class CampaignRunner:
     """对抗战役执行器。"""
 
@@ -346,11 +415,74 @@ class CampaignRunner:
         self.session_id = session_id or uuid.uuid4().hex
         self.logs_dir = logs_dir
         self.checkpoint_dir = os.path.join(logs_dir, "campaigns", self.session_id)
+        # 运行中指令通道（chat 下发）：stdin 读线程 + case 边界消费
+        self.cmd_ch = CommandChannel()
+        # 操作者转向指令：持久注入后续每轮生成 prompt（保最近 3 条）
+        self.user_instructions: List[str] = []
+
+    # -- 运行中指令 ------------------------------------------------------
+
+    def _ack(self, cmd: Dict[str, Any], status: str, message: str) -> None:
+        """指令回执（campaignNotice command_ack，chat 中以 system 气泡展示）。"""
+        logger.log_always("campaignNotice", campaignNotice(
+            kind="command_ack", op=cmd.get("op", ""), commandId=cmd.get("commandId", ""),
+            status=status, message=message, rounds=self.rounds_per_method,
+        ))
+
+    async def _apply_commands(self, ledger: CampaignLedger) -> None:
+        """case 边界消费 stdin 指令：instruction 转向 / extend_rounds 延长。"""
+        for cmd in await self.cmd_ch.drain():
+            op = cmd.get("op")
+            if op == "instruction":
+                text = (cmd.get("text") or "").strip()
+                if not text:
+                    self._ack(cmd, "rejected", logger.translated_msg("Instruction is empty"))
+                    continue
+                self.user_instructions.append(text)
+                self.user_instructions = self.user_instructions[-3:]
+                self._ack(cmd, "applied", logger.translated_msg(
+                    "Instruction accepted — applies to every generation from the next case"))
+            elif op == "extend_rounds":
+                try:
+                    n = max(1, int(cmd.get("n") or 1))
+                except Exception:
+                    n = 1
+                new_rounds = min(20, self.rounds_per_method + n)
+                if new_rounds == self.rounds_per_method:
+                    self._ack(cmd, "rejected", logger.translated_msg(
+                        "Round budget already at max (20)"))
+                    continue
+                self.rounds_per_method = new_rounds
+                ledger.rounds_per_method = new_rounds
+                ledger.save()
+                self._ack(cmd, "applied", logger.translated_msg(
+                    "Round budget extended to {n} rounds per method", n=new_rounds))
+
+    def _reject_pending_commands(self, reason: str) -> None:
+        """循环结束后迟到指令的显式拒绝回执（不静默丢弃）。"""
+        import asyncio as _aio
+
+        async def _drain_and_reject():
+            for cmd in await self.cmd_ch.drain():
+                self._ack(cmd, "rejected", reason)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(_drain_and_reject())
+            else:
+                loop.run_until_complete(_drain_and_reject())
+        except Exception:
+            pass
 
     # -- 反馈块 ----------------------------------------------------------
 
     def _feedback_block(self, ledger: CampaignLedger, method_name: str) -> str:
         lines = []
+        # 操作者转向（最高优先级）：运行中经 chat 下发的指令，注入后续每轮生成
+        if self.user_instructions:
+            lines.append("## Operator steering (HIGHEST PRIORITY — honor in this generation)")
+            for i, ins in enumerate(reversed(self.user_instructions[-3:])):
+                lines.append(f"- {ins}" + ("   <- latest operator instruction" if i == 0 else ""))
         own = ledger.cases_for_method(method_name, limit=3)
         if own:
             lines.append("## Previous attempts with this method (most recent first)")
@@ -489,6 +621,14 @@ class CampaignRunner:
                 f"- score: {case.get('score')}\n"
                 f"- reason: {case.get('reason') or case.get('error') or '-'}"
             ),
+        ))
+        # 战况摘要 → chat 卡片（每 (方法,轮次) 恰一条，log_always 不受 disable 影响）
+        logger.log_always("campaignNotice", campaignNotice(
+            kind="round_summary", method=case.get("attackMethod", ""),
+            round=round_idx, rounds=self.rounds_per_method, verdict=verdict,
+            score=case.get("score"),
+            reason=(case.get("reason") or case.get("error") or "")[:200],
+            breakthrough=bool(case.get("breakthrough")), stepId=worker_id,
         ))
 
     # -- 预校验 ----------------------------------------------------------
@@ -647,12 +787,22 @@ class CampaignRunner:
         total_cases = len(reserved) * self.rounds_per_method
         done_cases = 0
         try:
+            # 启动 stdin 指令通道（Go agent 写入；本地直跑时 stdin 为管道/终端，
+            # EOF 哨兵让循环正常退出语义不变）
+            self.cmd_ch.start(asyncio.get_running_loop())
             # 轮转调度：round-major —— round 1 扫过全部方法再进 round 2，
-            # 手动停止时也有全方法覆盖；串行执行保精化链（每轮生成消费上轮反馈）
-            for round_idx in range(1, self.rounds_per_method + 1):
+            # 手动停止时也有全方法覆盖；串行执行保精化链（每轮生成消费上轮反馈）。
+            # while 而非 range：运行中 extend_rounds 指令要能继续加轮。
+            # 注意 cmd_ch.closed（stdin EOF）只表示不再收新指令，**不终止战役**
+            # ——本地直跑/管道喂入时 input 写完即 EOF，战役必须继续跑完预算。
+            round_idx = 0
+            while round_idx < self.rounds_per_method:
+                round_idx += 1
                 if not reserved:
                     break
+                total_cases = len(reserved) * self.rounds_per_method  # 延长后分母即时变大
                 for idx, attack in enumerate(reserved):
+                    await self._apply_commands(ledger)  # 消费点 A：case 前
                     method_id = id_by_name.get(attack.get_name(), attack.get_name())
                     worker_id = "2" + _base26_name(idx)
                     if round_idx == 1:
@@ -673,11 +823,16 @@ class CampaignRunner:
                         description=logger.translated_msg(
                             "Campaign progress: {done}/{total} cases", done=done_cases, total=total_cases),
                         status="running"))
+                    await self._apply_commands(ledger)  # 消费点 B：case 后
         except Exception as e:
             logger.exception(e)
             logger.critical_issue(content=logger.translated_msg(
                 "An error occurred during the campaign. Partial results are preserved in the report."))
             # 落到报告阶段：已跑完的 case 不丢
+
+        # 迟到指令显式拒绝（不静默丢弃）
+        self._reject_pending_commands(logger.translated_msg(
+            "Campaign has entered the report stage — late commands are not applied"))
 
         # ===== Stage 3: 战报 =====
         logger.new_plan_step(newPlanStep(stepId="3", title=logger.translated_msg("Generating campaign report")))
