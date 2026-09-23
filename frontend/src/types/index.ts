@@ -80,11 +80,12 @@ export interface ExecutionStep {
   jailbreakResult?: JailbreakResult; // Model one-click jailbreak result
   agentScanResult?: AgentScanResult; // Agent scan result
   campaignResult?: CampaignResult; // Campaign battle report result
+  campaignNotice?: CampaignNoticeData; // 对抗战役战况卡片数据
 }
 
 export interface Message {
   id: string;
-  type: 'user' | 'assistant' | 'system' | 'task_confirmation' | 'task_plan' | 'task_execution' | 'result' | 'error';
+  type: 'user' | 'assistant' | 'system' | 'task_confirmation' | 'task_plan' | 'task_execution' | 'result' | 'error' | 'campaign_notice';
   brief?: string;
   content: string;
   timestamp: Date;
@@ -101,6 +102,7 @@ export interface Message {
   jailbreakResult?: JailbreakResult; // Model one-click jailbreak result
   agentScanResult?: AgentScanResult; // Agent scan result
   campaignResult?: CampaignResult; // Campaign battle report result
+  campaignNotice?: CampaignNoticeData; // 对抗战役战况卡片数据
 }
 
 export interface FileAttachment {
@@ -253,6 +255,18 @@ export interface CampaignResult {
     vulnerabilityResults?: Array<{ vulnerability: string; total: number; jailbreak: number; score: number; asr: number; errored: number }>;
     attackMethodResults?: Array<{ attackMethod: string; total: number; jailbreak: number; score: number; asr: number; errored: number; rounds?: number }>;
   };
+}
+
+// 对抗战役战况卡片（chat 内流式展示，每 (方法,轮次) 一条）
+export interface CampaignNoticeData {
+  kind: 'round_summary';
+  method: string;
+  round: number;
+  rounds: number;
+  verdict: string;
+  score?: number | null;
+  reason?: string;
+  breakthrough: boolean;
 }
 
 // Model one-click jailbreak result type definitions

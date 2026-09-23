@@ -354,7 +354,15 @@
     "deleteRequestFailed": "删除请求失败",
     "renameFailed": "重命名失败",
     "deleteFailed": "删除失败",
-    "downloadFileFailed": "下载文件失败"
+    "downloadFileFailed": "下载文件失败",
+    "campaignFollowUpPlaceholder": "输入运行中指令（如：换个角度、聚焦某个攻击面）…",
+    "campaignRunningHint": "战役进行中 — 指令将在下一个 case 生效：",
+    "extendRounds": "延长 {n} 轮",
+    "extendRoundsMessage": "延长攻击轮次 +{n}",
+    "commandAccepted": "指令已生效",
+    "commandRejected": "指令未生效",
+    "commandSendError": "指令下发失败，请稍后重试",
+    "campaignRoundN": "第 {r}/{n} 轮"
   },
   "jailbreak": {
     "title": "越狱测试",

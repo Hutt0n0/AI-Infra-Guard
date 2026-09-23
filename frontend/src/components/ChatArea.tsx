@@ -19,13 +19,15 @@ import {
   deleteTaskRequest,
   terminateTaskRequest,
   openTaskSSE,
+  sendTaskCommand,
 } from '../lib/taskApi';
 import { buildTaskParams, buildTaskCreateBody, getModelIdForTask, getEvalModelIdForTask } from '../lib/taskCreate';
 import { businessPartners, showBusinessPartners, PracticeShowcase } from '@/config/privateModules';
 import { useMcpServices } from '../config/mcpServices';
 import { 
   Paperclip, 
-  Shield, 
+  Shield,
+  Swords,
   AlertTriangle,
   AlertCircle,
   Bug,
@@ -408,7 +410,53 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
           },
         });
         break;
-        
+
+      case 'campaignNotice':
+        // 对抗战役：战况摘要卡片 / 指令回执（回执复用 system 气泡）
+        {
+          const ev = data.event || {};
+          if (ev.kind === 'round_summary') {
+            dispatch({
+              type: 'ADD_MESSAGE',
+              payload: {
+                taskId: data.sessionId,
+                message: {
+                  id: ev.id || uuidv4(),
+                  type: 'campaign_notice',
+                  brief: ev.verdict || '',
+                  content: ev.reason || '',
+                  campaignNotice: {
+                    kind: 'round_summary',
+                    method: ev.method || '',
+                    round: ev.round || 0,
+                    rounds: ev.rounds || 0,
+                    verdict: ev.verdict || '',
+                    score: ev.score ?? null,
+                    reason: ev.reason || '',
+                    breakthrough: !!ev.breakthrough,
+                  },
+                  timestamp: ev.timestamp ? new Date(ev.timestamp * 1000) : new Date(),
+                } as Message,
+              },
+            });
+          } else if (ev.kind === 'command_ack') {
+            dispatch({
+              type: 'ADD_MESSAGE',
+              payload: {
+                taskId: data.sessionId,
+                message: {
+                  id: ev.id || uuidv4(),
+                  type: 'system',
+                  brief: ev.status === 'rejected' ? t('chatArea.commandRejected') : t('chatArea.commandAccepted'),
+                  content: ev.message || '',
+                  timestamp: ev.timestamp ? new Date(ev.timestamp * 1000) : new Date(),
+                } as Message,
+              },
+            });
+          }
+        }
+        break;
+
       case 'resultUpdate':
         // Check whether a result message already exists to avoid duplicate additions
         const resultTask = stateRef.current.tasks.find(task => task.id === data.sessionId);
@@ -732,11 +780,49 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
   // Send message
   const [isSending, setIsSending] = useState(false);
   
-  const handleSend = async () => {
-    if (isSending) {
+  // 延长战役轮次预算（快捷 chips）：指令下发 + 用户气泡留痕
+  const handleExtendRounds = async (n: number) => {
+    if (!currentTask || isSending) return;
+    setIsSending(true);
+    try {
+      const res = await sendTaskCommand(currentTask.id, { op: 'extend_rounds', n, commandId: uuidv4() });
+      if (res.status === 0) {
+        actions.sendMessage(currentTask.id, t('chatArea.extendRoundsMessage').replace('{n}', String(n)));
+      } else {
+        toast.error(res.message || t('chatArea.commandSendError'));
+      }
+    } catch {
+      toast.error(t('chatArea.commandSendError'));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSend = async () => {    if (isSending) {
       return;
     }
-    
+
+    // 对抗战役运行中指令：early-return，绝不进入任务创建链路
+    // （重复 POST /tasks 会撞"任务已存在"并误删本地任务）
+    if (currentTask && currentTask.type === 'Campaign' && currentTask.status === 'running' && input.trim()) {
+      const text = input.trim();
+      setIsSending(true);
+      try {
+        const res = await sendTaskCommand(currentTask.id, { op: 'instruction', text, commandId: uuidv4() });
+        if (res.status === 0) {
+          actions.sendMessage(currentTask.id, text);
+          setInput('');
+        } else {
+          toast.error(res.message || t('chatArea.commandSendError'));
+        }
+      } catch {
+        toast.error(t('chatArea.commandSendError'));
+      } finally {
+        setIsSending(false);
+      }
+      return;
+    }
+
     const taskType = selectedMcpService.id;
     
     // For a Model-Redteam-Report task type, the input content check is unnecessary
@@ -1588,6 +1674,37 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
                   </div>
                 )}
 
+                {/* Campaign round summary card（对抗战役战况：每 (方法,轮次) 一张） */}
+                {message.type === 'campaign_notice' && message.campaignNotice && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[70%] w-full bg-white border rounded-lg p-3" style={{ borderColor: 'var(--outline)' }}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Swords className="w-3.5 h-3.5" style={{ color: 'var(--brand)' }} />
+                        <span className="text-xs font-semibold text-gray-700">{message.campaignNotice.method}</span>
+                        <span className="text-[11px] text-gray-400">
+                          {t('chatArea.campaignRoundN').replace('{r}', String(message.campaignNotice.round)).replace('{n}', String(message.campaignNotice.rounds))}
+                        </span>
+                        <span
+                          className="text-[11px] font-semibold rounded-full px-2 py-0.5"
+                          style={
+                            message.campaignNotice.verdict === 'Jailbreak'
+                              ? { color: 'var(--st-crit-t)', background: 'var(--st-crit-bg)' }
+                              : message.campaignNotice.verdict === 'Safe'
+                              ? { color: 'var(--st-good-t)', background: 'var(--st-good-bg)' }
+                              : { color: 'var(--st-warn-t)', background: 'var(--st-warn-bg)' }
+                          }
+                        >
+                          {message.campaignNotice.verdict}
+                        </span>
+                        <span className="ml-auto text-[11px] text-gray-400">{formatTime(message.timestamp)}</span>
+                      </div>
+                      {message.campaignNotice.reason && (
+                        <div className="mt-1.5 text-xs text-gray-500 break-words">{message.campaignNotice.reason}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
 
 
                 {/* Result message */}
@@ -1716,6 +1833,8 @@ const ChatArea: React.FC<ChatAreaProps> = ({ selectedStep, onStepSelect, onMcpRe
         maxEvaluationCount={maxEvaluationCount}
         onMaxEvaluationCountChange={setMaxEvaluationCount}
         isSending={isSending}
+        followUpMode={currentTask?.type === 'Campaign' && currentTask?.status === 'running'}
+        onExtendRounds={handleExtendRounds}
       />
       <HttpHeaderDialog
         open={showHttpHeaderDialog}
