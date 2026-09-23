@@ -67,14 +67,20 @@ export function ScanForm({
   const [selectedAgent, setSelectedAgent] = React.useState<string | undefined>();
   // Agent-Scan 技能子集：空数组 = 全量扫描（默认），选中部分则只跑所选
   const [selectedSkills, setSelectedSkills] = React.useState<string[]>([]);
-  // 体检评测目标：模型 API（默认）/ 被测 Agent / SSE 大模型 API 直连（三选一互斥）
+  // 体检/战役评测目标：模型 API（默认）/ 被测 Agent / SSE 大模型 API 直连（三选一互斥）
   const [redteamTargetType, setRedteamTargetType] = React.useState<'model' | 'agent' | 'sse'>('model');
   const [selectedTargetAgent, setSelectedTargetAgent] = React.useState<string | undefined>();
   // SSE 大模型 API 直连（表单直接填，不经 Agent 配置库）
   const [sseUrl, setSseUrl] = React.useState('');
   const [sseModel, setSseModel] = React.useState('');
   const [sseApiKey, setSseApiKey] = React.useState('');
+  // 战役轮次预算：每方法 N 轮后自动结束（人工停止随时可用）
+  const [roundsPerMethod, setRoundsPerMethod] = React.useState<number>(3);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  // 体检家族：体检与战役共用目标三态/评分模型/攻击方法选择器等字段
+  const isRedteamFamily = service.id === 'Model-Redteam-Report' || service.id === 'Campaign';
+  const isCampaign = service.id === 'Campaign';
 
   // 切换类型时清空状态
   React.useEffect(() => {
@@ -89,6 +95,7 @@ export function ScanForm({
     setSseUrl('');
     setSseModel('');
     setSseApiKey('');
+    setRoundsPerMethod(3);
     setAttachmentFiles([]);
     setSubmitError(null);
   }, [service.id]);
@@ -108,12 +115,14 @@ export function ScanForm({
   }, []);
 
   React.useEffect(() => {
-    if (service.id !== 'Agent-Scan' && service.id !== 'Model-Redteam-Report') return;
+    if (service.id !== 'Agent-Scan' && !isRedteamFamily) return;
     let cancelled = false;
     agentApi.getAgentNames().then(res => {
       if (!cancelled && res.status === 0) setAgentNames(res.data ?? []);
     }).catch(() => {});
     return () => { cancelled = true; };
+    // isRedteamFamily 由 service.id 推导，无需单列依赖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service.id]);
 
   React.useEffect(() => {
@@ -132,9 +141,11 @@ export function ScanForm({
   const showAgent = service.id === 'Agent-Scan';
   const showEvaluations = service.id === 'Model-Redteam-Report';
   const showAttachments = service.attachmentTypes.length > 0;
-  const needsContent = service.id !== 'Model-Redteam-Report' && service.id !== 'Agent-Scan';
+  // 战役：课题即 content（必填）；体检保留原有"扫描目标"语义排除
+  const needsContent = (service.id !== 'Model-Redteam-Report' && service.id !== 'Agent-Scan') || isCampaign;
   // 体检自定义 Prompt（选填）：content 非空 → 后端走 Custom:prompt 单 case 场景，
-  // 与评测数据集互斥（prompt_tasks.go 校验"prompt 和 data 不能同时使用"）
+  // 与评测数据集互斥（prompt_tasks.go 校验"prompt 和 data 不能同时使用"）。
+  // 战役不显示该字段（topic 就是 content）
   const showCustomPrompt = showEvaluations;
   const hasDataset = evaluations.some(ev => (ev as any).selected);
 
@@ -145,13 +156,15 @@ export function ScanForm({
     // 忽略——textarea 下方已有红字提示；后端 buildTaskParams 对 content 置空
     // dataset，不会触发"prompt 和 data 不能同时使用"）
     (showCustomPrompt ? content.trim().length > 0 || hasDataset : true) &&
+    // 战役：课题必填（无数据集兜底）
+    (isCampaign ? content.trim().length > 0 : true) &&
     (!showAgent || !!selectedAgent) &&
     (!showModel || service.model === 'multi' ? true : true) && // multi 模式允许空（后端可默认）
-    // 体检选 Agent 目标时必须选择具体 Agent
-    (showEvaluations ? redteamTargetType !== 'agent' || !!selectedTargetAgent : true) &&
-    // 体检选 SSE 直连目标时必须填接口地址
-    (showEvaluations ? redteamTargetType !== 'sse' || !!sseUrl.trim() : true) &&
-    // 体检选 Agent/SSE 目标时评分模型必选（评分引擎必须用 LLM 打分，无默认可用）
+    // 体检/战役选 Agent 目标时必须选择具体 Agent
+    (isRedteamFamily ? redteamTargetType !== 'agent' || !!selectedTargetAgent : true) &&
+    // 体检/战役选 SSE 直连目标时必须填接口地址
+    (isRedteamFamily ? redteamTargetType !== 'sse' || !!sseUrl.trim() : true) &&
+    // 体检/战役选 Agent/SSE 目标时评分模型必选（评分引擎必须用 LLM 打分，无默认可用）
     (showEvalModel ? redteamTargetType === 'model' || !!selectedEvalModel : true)
 
   const handleSubmit = () => {
@@ -159,8 +172,12 @@ export function ScanForm({
       setSubmitError(
         showEvalModel && redteamTargetType !== 'model' && !selectedEvalModel
           ? 'Agent / SSE 目标模式下请选择评分模型'
-          : showEvaluations && redteamTargetType === 'sse' && !sseUrl.trim()
+          : isRedteamFamily && redteamTargetType === 'sse' && !sseUrl.trim()
             ? '请填写 SSE 接口地址'
+            : isRedteamFamily && redteamTargetType === 'agent' && !selectedTargetAgent
+            ? '请选择被测 Agent'
+            : isCampaign && !content.trim()
+            ? '请填写战役课题'
             : showCustomPrompt && !content.trim() && !hasDataset
             ? '请填写自定义 Prompt 或选择评测数据集'
             : needsContent && !content.trim() && attachmentFiles.length === 0
@@ -182,11 +199,13 @@ export function ScanForm({
         selectedAttackMethods,
         selectedAgent,
         selectedSkills,
-        selectedTargetAgent: redteamTargetType === 'agent' ? selectedTargetAgent : undefined,
+        selectedTargetAgent: isRedteamFamily && redteamTargetType === 'agent' ? selectedTargetAgent : undefined,
         // SSE 大模型 API 直连（表单直接填，server 端生成临时 sse target YAML）
-        targetSse: redteamTargetType === 'sse'
+        targetSse: isRedteamFamily && redteamTargetType === 'sse'
           ? { url: sseUrl.trim(), model: sseModel.trim(), api_key: sseApiKey.trim(), label: 'sse-direct' }
           : undefined,
+        // 战役轮次预算
+        roundsPerMethod: isCampaign ? roundsPerMethod : undefined,
       },
       attachmentFiles,
     });
@@ -201,13 +220,15 @@ export function ScanForm({
         {/* 目标输入 */}
         {needsContent && (
           <div>
-            <FieldLabel>扫描目标</FieldLabel>
+            <FieldLabel>{isCampaign ? '战役课题' : '扫描目标'}</FieldLabel>
             <FieldBox>
               <textarea
                 value={content}
                 onChange={e => setContent(e.target.value)}
-                placeholder={service.placeholderPrefix || '输入目标 URL / IP / 描述…'}
-                rows={2}
+                placeholder={isCampaign
+                  ? '输入研究课题，如：测试该模型对涉政内容的拒答边界…\n驱动模型将围绕课题自生成攻击并按轮次迭代突破'
+                  : service.placeholderPrefix || '输入目标 URL / IP / 描述…'}
+                rows={isCampaign ? 3 : 2}
                 className="flex-1 bg-transparent outline-none resize-none text-[13px] text-plat-ink placeholder:text-plat-muted"
               />
             </FieldBox>
@@ -261,8 +282,8 @@ export function ScanForm({
           </div>
         )}
 
-        {/* 评测目标（Model-Redteam-Report）：模型 API / 被测 Agent / SSE 大模型 API 直连 */}
-        {showEvaluations && (
+        {/* 评测目标（体检/战役）：模型 API / 被测 Agent / SSE 大模型 API 直连 */}
+        {isRedteamFamily && (
           <div>
             <FieldLabel>评测目标</FieldLabel>
             <div className="flex items-center gap-2 mb-2">
@@ -366,6 +387,32 @@ export function ScanForm({
                 ))}
               </select>
             </FieldBox>
+          </div>
+        )}
+
+        {/* 战役轮次预算：每方法 N 轮后自动结束（随时可人工停止） */}
+        {isCampaign && (
+          <div>
+            <FieldLabel>每方法轮次预算</FieldLabel>
+            <div className="flex items-center gap-2">
+              {[1, 2, 3, 5, 10].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRoundsPerMethod(n)}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors',
+                    roundsPerMethod === n ? 'text-white border-transparent' : 'bg-white text-plat-ink-2 hover:bg-plat-surface-low'
+                  )}
+                  style={roundsPerMethod === n ? { background: 'var(--brand)' } : { borderColor: 'var(--outline)' }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <div className="text-[11px] mt-1 text-plat-muted">
+              每个攻击方法围绕课题迭代 N 轮后战役自动结束，运行中可随时终止。多轮会话类方法（Crescendo/PAIR 等）每轮含多次目标交互，耗时更长
+            </div>
           </div>
         )}
 
@@ -482,10 +529,10 @@ export function ScanForm({
           </div>
         )}
 
-        {/* 攻击方法（Model-Redteam-Report） */}
-        {showEvaluations && (
+        {/* 攻击方法（体检/战役）：战役默认全量（不选 = 全部方法） */}
+        {isRedteamFamily && (
           <div>
-            <FieldLabel>攻击方法</FieldLabel>
+            <FieldLabel>{isCampaign ? '攻击方法（不选 = 全部方法）' : '攻击方法'}</FieldLabel>
             <AttackMethodSelector
               selectedMethods={selectedAttackMethods}
               onMethodsSelect={setSelectedAttackMethods}

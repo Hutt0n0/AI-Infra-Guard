@@ -45,6 +45,8 @@ function buildTask(raw: any): Task {
       resultMessage.infraScanResult = assembled.result.result;
     } else if (taskType === 'Model-Redteam-Report') {
       resultMessage.redteamReportResult = assembled.result.result;
+    } else if (taskType === 'Campaign') {
+      resultMessage.campaignResult = assembled.result.result;
     } else if (taskType === 'Model-Jailbreak') {
       resultMessage.jailbreakResult = assembled.result.result;
     } else if (taskType === 'Agent-Scan') {

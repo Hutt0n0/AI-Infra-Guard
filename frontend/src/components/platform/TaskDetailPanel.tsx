@@ -5,6 +5,7 @@ import InfraScanDetailPanel from '../detailPanel/InfraScanDetailPanel';
 import RedteamReportDetailPanel from '../detailPanel/RedteamReportDetailPanel';
 import JailbreakDetailPanel from '../detailPanel/JailbreakDetailPanel';
 import AgentScanDetailPanel from '../detailPanel/AgentScanDetailPanel';
+import CampaignDetailPanel from '../detailPanel/CampaignDetailPanel';
 import ScanProgressConsole from '../detailPanel/ScanProgressConsole';
 import type { useTaskDetailState } from '../../hooks/useTaskDetailState';
 
@@ -39,7 +40,7 @@ export function TaskDetailPanel({
 }: TaskDetailPanelProps) {
   const {
     selectedStep, selectedTool,
-    mcpResult, infraScanResult, redteamReportResult, jailbreakResult, agentScanResult,
+    mcpResult, infraScanResult, redteamReportResult, jailbreakResult, agentScanResult, campaignResult,
     handleStepSelect,
   } = state;
 
@@ -89,6 +90,14 @@ export function TaskDetailPanel({
           isFullscreen={isFullscreen}
           onToggleFullscreen={onToggleFullscreen}
           onBack={runningWithoutResult ? () => handleStepSelect(null) : undefined}
+        />
+      );
+    case 'Campaign':
+      return (
+        <CampaignDetailPanel
+          campaignResult={campaignResult}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={onToggleFullscreen}
         />
       );
     case 'Model-Jailbreak':

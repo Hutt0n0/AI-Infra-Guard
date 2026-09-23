@@ -43,6 +43,7 @@ export const TASK_TYPE_SERIES: Record<string, string> = {
   'Model-Redteam-Report': 'var(--series-5)',
   'Model-Jailbreak': 'var(--series-5)',
   'Agent-Scan': 'var(--series-3)',
+  'Campaign': 'var(--brand)',
 };
 
 /** 图表调色板（recharts 直连用） */

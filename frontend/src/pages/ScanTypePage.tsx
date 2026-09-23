@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Loader2, RefreshCw, FileBarChart2, Bot, FileSearch, ShieldCheck, AlertTriangle, Bug, Plus } from 'lucide-react';
+import { Loader2, RefreshCw, FileBarChart2, Bot, FileSearch, ShieldCheck, AlertTriangle, Bug, Plus, Swords } from 'lucide-react';
 import { PageHeader, KpiCard, FilterChips, FilterRow, DataTable, TaskTypeBadge, TaskStatusBadge, Sparkline } from '../components/platform/primitives';
 import type { DataTableColumn } from '../components/platform/primitives';
 import { fetchScanTypeStats, type ScanTypeStats } from '../lib/scanTypeApi';
@@ -14,6 +14,7 @@ const SCAN_TYPES: Record<string, { taskType: string; navKey: string; fallback: s
   mcp: { taskType: 'Mcp-Scan', navKey: 'mcpScan', fallback: 'MCP扫描', light: 'MCP Scan', icon: ShieldCheck },
   redteam: { taskType: 'Model-Redteam-Report', navKey: 'modelRedteamReport', fallback: '大模型安全体检', light: 'LLM Security Check', icon: AlertTriangle },
   infra: { taskType: 'AI-Infra-Scan', navKey: 'aiInfraScan', fallback: 'AI基础设施扫描', light: 'AI Infra Scan', icon: Bug },
+  campaign: { taskType: 'Campaign', navKey: 'campaign', fallback: '对抗战役', light: 'Campaign', icon: Swords },
 };
 
 const STATUS_FILTERS = [

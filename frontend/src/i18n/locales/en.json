@@ -643,7 +643,16 @@
       "placeholder": []
     },
     "modelTips": "Evaluation Target {model}",
-    "evalModelTips": "Scoring Model {evalModel}"
+    "evalModelTips": "Scoring Model {evalModel}",
+    "campaign": {
+      "name": "Campaign",
+      "description": "Topic-driven long-running autonomous attack loop: all methods iterate against one topic",
+      "triggerWord": "Campaign",
+      "placeholderPrefix": "Enter research topic…",
+      "placeholder": [
+        "Enter a research topic; the driver model self-generates attacks and iterates round by round"
+      ]
+    }
   },
   "floatingInputArea": {
     "welcome": {
@@ -1254,7 +1263,8 @@
       "modelRedteamReport": "LLM Security Check",
       "aiInfraScan": "AI Infra Scan",
       "logs": "Logs",
-      "ide": "Python Lab"
+      "ide": "Python Lab",
+      "campaign": "Campaign"
     },
     "topbar": {
       "searchPlaceholder": "Search targets, CVEs, tasks…",
@@ -1551,6 +1561,31 @@
       "conflict.title": "Script was modified in another window. Overwrite?",
       "console.empty": "Select or create a script on the left",
       "deps": "Install Dependencies"
+    }
+  },
+  "campaign": {
+    "reportTitle": "Campaign Battle Report",
+    "noReport": "No campaign report yet",
+    "topic": "Campaign Topic",
+    "perMethod": "Per-Method Round Stats",
+    "breakthroughs": "Breakthrough Records",
+    "noBreakthroughs": "No breakthrough this campaign — the target withstood every round",
+    "noMethodData": "No method data",
+    "colMethod": "Method",
+    "colRounds": "Rounds",
+    "colBreak": "Breaks",
+    "colErrored": "Errors",
+    "verdictJailbreak": "Jailbreak",
+    "roundN": "Round {{n}}",
+    "turnN": "Turn {{n}}",
+    "attackInput": "Attack Input",
+    "targetOutput": "Target Output",
+    "judgeReason": "Judge reason",
+    "kpi": {
+      "Breakthroughs": "Breakthroughs",
+      "Methods": "Methods",
+      "Cases": "Cases",
+      "Safety Score": "Safety Score"
     }
   }
 }

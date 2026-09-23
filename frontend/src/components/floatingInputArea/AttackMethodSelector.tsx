@@ -46,7 +46,8 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Decide whether the attack-method selection button should be shown
-  const shouldShow = taskType === 'Model-Redteam-Report';
+  // （体检与对抗战役共用方法目录；Campaign 默认全量、选择子集则只跑所选）
+  const shouldShow = taskType === 'Model-Redteam-Report' || taskType === 'Campaign';
   
   // Check whether any evaluation set has official=false
   const hasNonOfficialEvaluation = selectedEvaluations.some(evaluation => evaluation.official === false);

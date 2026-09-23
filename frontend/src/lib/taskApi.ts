@@ -66,7 +66,10 @@ export function mapStatusToStepStatus(status: string): 'todo' | 'doing' | 'done'
 
 /** API taskType → 前端内部 TaskType（ReportPage 同名函数的共享化，注意 Skill-Scan 先于 Mcp-Scan 判断） */
 export function getTaskTypeFromString(taskType: string): TaskType {
-  if (taskType.includes('Skill-Scan') || taskType.includes('skill')) {
+  // Campaign 分支放最前：避免与 agent/redteam 等宽松 includes 撞车
+  if (taskType.includes('Campaign') || taskType.includes('campaign')) {
+    return 'Campaign' as TaskType;
+  } else if (taskType.includes('Skill-Scan') || taskType.includes('skill')) {
     return 'Skill-Scan' as TaskType;
   } else if (taskType.includes('Mcp-Scan') || taskType.includes('mcp')) {
     return 'Mcp-Scan' as TaskType;
