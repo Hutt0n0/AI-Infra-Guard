@@ -13,7 +13,11 @@ import PromptSetTabContent from '../components/platform/knowledge/PromptSetTabCo
 import { useKnowledgeLibrary, useKnowledgeTotals } from '../hooks/useKnowledgeLibrary';
 import type { KnowledgeTab } from '../hooks/useKnowledgeLibrary';
 
-const TABS: { key: KnowledgeTab; labelKey: string; fallback: string }[] = [
+// prompts/agents 两个 Tab 不走通用知识库列表数据层（自带数据源），
+// 因此不在 KnowledgeTab 联合类型里；页面内部用扩展类型管理。
+type RuleLibraryTab = KnowledgeTab | 'prompts' | 'agents';
+
+const TABS: { key: RuleLibraryTab; labelKey: string; fallback: string }[] = [
   { key: 'vulnerabilities', labelKey: 'platform.ruleLibrary.tabVul', fallback: '漏洞库 CVE' },
   { key: 'fingerprints', labelKey: 'platform.ruleLibrary.tabFp', fallback: '指纹库' },
   { key: 'evaluations', labelKey: 'platform.ruleLibrary.tabEval', fallback: '评测集' },
@@ -26,9 +30,8 @@ const TABS: { key: KnowledgeTab; labelKey: string; fallback: string }[] = [
 export default function RuleLibraryPage() {
   const { t, ready } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = (searchParams.get('tab') as KnowledgeTab) || 'vulnerabilities';
-  const activeTab: KnowledgeTab = TABS.some(x => x.key === tab) ? tab : 'vulnerabilities';
-  // prompts/agents Tab 不走通用列表数据层（自带空态/独立数据源）
+  const tab = searchParams.get('tab') as RuleLibraryTab | null;
+  const activeTab: RuleLibraryTab = tab && TABS.some(x => x.key === tab) ? tab : 'vulnerabilities';
   const isLibTab = activeTab !== 'prompts' && activeTab !== 'agents';
   const { totals, agentCount, promptCollectionCount } = useKnowledgeTotals();
   const [syncing, setSyncing] = React.useState(false);
@@ -36,7 +39,7 @@ export default function RuleLibraryPage() {
   const lib = useKnowledgeLibrary(isLibTab ? activeTab : 'vulnerabilities');
   const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
 
-  const setTab = (key: KnowledgeTab) => {
+  const setTab = (key: RuleLibraryTab) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', key);
     setSearchParams(next);
@@ -62,7 +65,7 @@ export default function RuleLibraryPage() {
     }
   };
 
-  const stats: { key: KnowledgeTab | 'agents' | 'prompts'; label: string; value: number | null; unit: string }[] = [
+  const stats: { key: RuleLibraryTab; label: string; value: number | null; unit: string }[] = [
     { key: 'fingerprints', label: label('platform.ruleLibrary.statFp', '指纹规则'), value: totals.fingerprints, unit: 'YAML' },
     { key: 'vulnerabilities', label: label('platform.ruleLibrary.statVul', 'CVE 规则'), value: totals.vulnerabilities, unit: '条' },
     { key: 'evaluations', label: label('platform.ruleLibrary.statEval', '评测数据集'), value: totals.evaluations, unit: 'JSON' },
@@ -141,7 +144,7 @@ export default function RuleLibraryPage() {
         <FilterChips
           items={TABS.map(x => ({ key: x.key, label: label(x.labelKey, x.fallback) }))}
           activeKey={activeTab}
-          onChange={key => setTab(key as KnowledgeTab)}
+          onChange={key => setTab(key as RuleLibraryTab)}
         />
       </FilterRow>
 

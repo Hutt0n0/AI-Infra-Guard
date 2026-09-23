@@ -36,7 +36,11 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
   const [menuPosition, setMenuPosition] = useState<'top' | 'bottom'>('top');
   const [loading, setLoading] = useState(false);
   const [strategies, setStrategies] = useState<AttackMethod[]>([]);
+  // hoveredStrategy = 纯视觉高亮（鼠标悬停）；activeStrategy = 点击选定，
+  // 驱动右栏方法列表。之前右栏直接跟 hover 走，鼠标滑过相邻分组时内容
+  // 来回跳（用户误以为"悬停即选中"），现改为点击切换。
   const [hoveredStrategy, setHoveredStrategy] = useState<string | null>(null);
+  const [activeStrategy, setActiveStrategy] = useState<string | null>(null);
   const hasSetDefaultRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,6 +82,8 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
                 strategy.methods.some(method => method.id === defaultMethod)
               );
               if (strategyWithDefault) {
+                // 默认分组右栏初始即展示（点击语义下用 activeStrategy）
+                setActiveStrategy(strategyWithDefault.id);
                 setHoveredStrategy(strategyWithDefault.id);
               }
             }
@@ -131,7 +137,6 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
   const handleSelectAllMethods = (strategyId: string) => {
     const strategy = strategies.find(s => s.id === strategyId);
     if (!strategy) return;
-    
     const strategyMethodIds = strategy.methods.map(method => method.id);
     const allSelected = strategyMethodIds.every(id => selectedMethods.includes(id));
     
@@ -150,26 +155,14 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
     }
   };
 
-  // Handle strategy hover
+  // Handle strategy hover —— 仅视觉高亮，不切换右栏内容
   const handleStrategyHover = (strategyId: string) => {
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-      hideTimerRef.current = null;
-    }
     setHoveredStrategy(strategyId);
   };
 
-  // Handle strategy leave
-  const handleStrategyLeave = (event: React.MouseEvent) => {
-    // Check whether the mouse moved into the second-level menu area
-    const relatedTarget = event.relatedTarget as HTMLElement;
-    if (relatedTarget && menuRef.current && menuRef.current.contains(relatedTarget)) {
-      return; // Do not hide the second-level menu if the mouse moved to another area inside the menu
-    }
-    
-    hideTimerRef.current = setTimeout(() => {
-      setHoveredStrategy(null);
-    }, 150);
+  // Handle strategy click —— 点击才切换右栏方法列表
+  const handleStrategyClick = (strategyId: string) => {
+    setActiveStrategy(strategyId);
   };
 
   // Handle entering the second-level menu area
@@ -301,9 +294,16 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
                       const strategyElement = (
                         <div
                           key={strategy.id}
-                          className={`flex items-center justify-between p-2 hover:bg-gray-100 rounded cursor-pointer text-gray-600 ${hoveredStrategy === strategy.id ? 'bg-blue-50' : ''}`}
+                          className={`flex items-center justify-between p-2 rounded cursor-pointer text-gray-600 ${
+                            activeStrategy === strategy.id
+                              ? 'bg-blue-50'
+                              : hoveredStrategy === strategy.id
+                              ? 'bg-gray-100'
+                              : ''
+                          }`}
                           onMouseEnter={() => handleStrategyHover(strategy.id)}
-                          onMouseLeave={(e) => handleStrategyLeave(e)}
+                          onMouseLeave={() => setHoveredStrategy(null)}
+                          onClick={() => handleStrategyClick(strategy.id)}
                         >
                           <div className='flex items-center gap-1'>
                             <span className='text-sm font-medium text-gray-600 truncate'>
@@ -337,7 +337,7 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
               </div>
               
               {/* Method list */}
-              {hoveredStrategy && (
+              {activeStrategy && (
                 <div className='flex-1' style={{minWidth: '150px'}} onMouseEnter={handleSubmenuEnter}>
                   <div className='p-2'>
                     <div 
@@ -355,7 +355,7 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
                       }}
                     >
                       {(() => {
-                        const strategy = strategies.find(s => s.id === hoveredStrategy);
+                        const strategy = strategies.find(s => s.id === activeStrategy);
                         return strategy?.methods.map((method) => {
                           const isSelected = selectedMethods.includes(method.id);
                           return (
@@ -378,7 +378,7 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
                     
                     {/* Select-all / unselect-all checkbox - placed at the bottom */}
                     {(() => {
-                      const strategy = strategies.find(s => s.id === hoveredStrategy);
+                      const strategy = strategies.find(s => s.id === activeStrategy);
                       if (!strategy) return null;
                       
                       const strategyMethodIds = strategy.methods.map(method => method.id);
@@ -389,7 +389,7 @@ const AttackMethodSelector: React.FC<AttackMethodSelectorProps> = ({
                         <div className='mt-2 pt-2 border-t border-gray-200'>
                           <div 
                             className='flex items-center space-x-2 p-2 hover:bg-gray-100 rounded cursor-pointer text-gray-600'
-                            onClick={() => handleSelectAllMethods(hoveredStrategy)}
+                            onClick={() => handleSelectAllMethods(activeStrategy)}
                           >
                             <div className={`w-4 h-4 border rounded flex items-center justify-center ${allSelected ? 'bg-blue-600 border-blue-600' : someSelected ? 'bg-blue-300 border-blue-300' : 'border-gray-300'}`}>
                               {allSelected && <Check className='w-3 h-3 text-white' />}
