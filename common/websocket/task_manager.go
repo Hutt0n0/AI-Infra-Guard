@@ -1347,7 +1347,7 @@ func (tm *TaskManager) generateTaskTitle(req *TaskCreateRequest) string {
 	// 定义语言相关的文本
 	var texts struct {
 		// 任务类型标题
-		aiInfraScan, mcpScan, skillScan, modelJailbreak, modelRedteamReport, agentScan, otherTask string
+		aiInfraScan, mcpScan, skillScan, modelJailbreak, modelRedteamReport, agentScan, campaign, otherTask string
 		// 其他文本
 		model, prompt, github, sse string
 	}
@@ -1359,6 +1359,7 @@ func (tm *TaskManager) generateTaskTitle(req *TaskCreateRequest) string {
 		texts.modelJailbreak = "LLM Jailbreaking - "
 		texts.modelRedteamReport = "Jailbreak Evaluation - "
 		texts.agentScan = "Agent Scan - "
+		texts.campaign = "Campaign - "
 		texts.otherTask = "Other Task - "
 		texts.model = "Model:"
 		texts.prompt = "Prompt:"
@@ -1371,6 +1372,7 @@ func (tm *TaskManager) generateTaskTitle(req *TaskCreateRequest) string {
 		texts.modelJailbreak = "一键越狱任务 - "
 		texts.modelRedteamReport = "大模型安全体检 - "
 		texts.agentScan = "Agent安全扫描 - "
+		texts.campaign = "对抗战役 - "
 		texts.otherTask = "其他任务 - "
 		texts.model = "模型:"
 		texts.prompt = "prompt:"
@@ -1426,6 +1428,16 @@ func (tm *TaskManager) generateTaskTitle(req *TaskCreateRequest) string {
 		ret = texts.modelJailbreak + fmt.Sprintf("%s%s, %s%s", texts.model, ModelName, texts.prompt, req.Content)
 	case agent.TaskTypeModelRedteamReport:
 		ret = texts.modelRedteamReport + ModelName
+	case agent.TaskTypeCampaign:
+		// 对抗战役：模型名 + 课题（截断，避免超长 topic 撑爆标题）
+		ret = texts.campaign + ModelName
+		if req.Content != "" {
+			topic := req.Content
+			if len(topic) > 80 {
+				topic = topic[:80] + "…"
+			}
+			ret += ", " + topic
+		}
 	case agent.TaskTypeAgentScan:
 		agentId, ok := req.Params["agent_id"]
 		ret = texts.agentScan

@@ -60,12 +60,14 @@ func main() {
 	agent4 := agent.ModelRedteamReport{Server: server}
 	agent5 := agent.AgentTask{Server: server}
 	agent6 := agent.SkillTask{Server: server}
+	agent7 := agent.CampaignTask{Server: server}
 
 	x.RegisterTaskFunc(&agent2)
 	x.RegisterTaskFunc(&agent3)
 	x.RegisterTaskFunc(&agent4)
 	x.RegisterTaskFunc(&agent5)
 	x.RegisterTaskFunc(&agent6)
+	x.RegisterTaskFunc(&agent7)
 
 	gologger.Infoln("wait task")
 	err := x.Start()
