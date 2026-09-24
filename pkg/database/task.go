@@ -34,12 +34,14 @@ const (
 
 // User 用户表（扩展版本）
 type User struct {
-	UserID     string `gorm:"primaryKey;column:user_id" json:"user_id"`
-	Username   string `gorm:"column:username;not null;uniqueIndex" json:"username"`        // 用户名（唯一）
-	Email      string `gorm:"column:email;not null;uniqueIndex" json:"email"`              // 邮箱（唯一）
-	IsActive   bool   `gorm:"column:is_active;not null;default:true" json:"is_active"`     // 是否激活
-	FirstLogin bool   `gorm:"column:first_login;not null;default:true" json:"first_login"` // 是否首次登录，默认true
-	CreatedAt  int64  `gorm:"column:created_at;not null" json:"created_at"`                // 创建时间
+	UserID       string `gorm:"primaryKey;column:user_id" json:"user_id"`
+	Username     string `gorm:"column:username;not null;uniqueIndex" json:"username"`        // 用户名（唯一）
+	Email        string `gorm:"column:email;not null;uniqueIndex" json:"email"`              // 邮箱（唯一）
+	IsActive     bool   `gorm:"column:is_active;not null;default:true" json:"is_active"`     // 是否激活
+	FirstLogin   bool   `gorm:"column:first_login;not null;default:true" json:"first_login"` // 是否首次登录，默认true
+	CreatedAt    int64  `gorm:"column:created_at;not null" json:"created_at"`                // 创建时间
+	PasswordHash string `gorm:"column:password_hash" json:"-"`                               // bcrypt 哈希（登录认证；legacy 行为空，永不出查询层）
+	Role         string `gorm:"column:role;not null;default:'user'" json:"role"`             // 角色：admin | user
 }
 
 // Session 会话表（一个会话对应一个任务）

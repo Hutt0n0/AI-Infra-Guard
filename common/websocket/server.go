@@ -70,6 +70,17 @@ func RunWebServer(options *version.Options) {
 		log.Fatalf("初始化tasks表失败: %v", err)
 	}
 
+	// 认证存储：首次启动引导 admin 账号（随机密码打日志横幅）+ public_user 数据迁移。
+	// AIG_AUTH_DISABLE=1 时跳过引导，全部中间件退化为旧头信任行为。
+	authStore := database.NewAuthStore(db)
+	SetAuthStore(authStore)
+	resolveAgentAPIKey()
+	if AuthEnabled() {
+		if err := authStore.BootstrapAuth(); err != nil {
+			log.Errorf("认证引导失败: trace_id=system_startup, error=%v", err)
+		}
+	}
+
 	// 初始化模型存储
 	modelStore := database.NewModelStore(db)
 	if err := modelStore.Init(); err != nil {
@@ -83,8 +94,20 @@ func RunWebServer(options *version.Options) {
 		if proxyErr != nil {
 			log.Errorf("API Checker 代理配置无效: trace_id=system_startup, error=%v", proxyErr)
 		} else {
-			apiCheckerProxy.EnableConfiguredModelResolution(setupIdentityMiddleware())
-			apiCheckerProxy.Register(r)
+			apiCheckerProxy.EnableConfiguredModelResolution(identityMiddleware())
+			// relay 受 session 保护；/api-checker/healthz 供健康检查保持开放
+			relayAuth := func(c *gin.Context) {
+				if !AuthEnabled() {
+					c.Next()
+					return
+				}
+				if strings.HasSuffix(c.Request.URL.Path, "/api-checker/healthz") {
+					c.Next()
+					return
+				}
+				sessionAuth()(c)
+			}
+			apiCheckerProxy.Register(r.Group("", relayAuth))
 			log.Infof(
 				"API Checker proxy initialized: trace_id=system_startup, upstream=%s",
 				options.APICheckerURL,
@@ -122,7 +145,7 @@ func RunWebServer(options *version.Options) {
 	// API 版本分组
 	v1 := r.Group("/api/v1")
 	{
-		v1.GET("/images/:path", func(context *gin.Context) {
+		v1.GET("/images/:path", sessionAuthIfEnabled(), func(context *gin.Context) {
 			path := context.Param("path")
 			if strings.Contains(path, "..") {
 				context.String(403, "Forbidden")
@@ -130,9 +153,11 @@ func RunWebServer(options *version.Options) {
 			}
 			context.File(filepath.Join("uploads", path))
 		})
+		// 认证端点（开放组，handler 自检登录/角色）
+		RegisterAuthRoutes(v1)
 		// 1. 知识库模块
 		knowledge := v1.Group("/knowledge")
-		knowledge.Use(setupIdentityMiddleware())
+		knowledge.Use(browserOrAgentAuth())
 		{
 			// AI应用指纹
 			fingerprints := knowledge.Group("/fingerprints")
@@ -195,7 +220,7 @@ func RunWebServer(options *version.Options) {
 		}
 		appSecurity := v1.Group("/app")
 		{
-			appSecurity.Use(setupIdentityMiddleware())
+			appSecurity.Use(browserOrAgentAuth())
 			// 任务管理
 			tasks := appSecurity.Group("/tasks")
 			{
@@ -281,22 +306,24 @@ func RunWebServer(options *version.Options) {
 				})
 			}
 		}
-		// 4. Agent 管理
+		// 4. Agent 管理（agent WS：升级前 X-APIKey 校验）
 		agents := v1.Group("/agents")
+		agents.Use(requireAgentAPIKey())
 		{
 			// 只需要WebSocket入口
 			agents.GET("/ws", agentManager.HandleAgentWebSocket())
 		}
 		// 5. Dashboard 聚合（平台安全总览）
 		dashboard := v1.Group("/dashboard")
-		dashboard.Use(setupIdentityMiddleware())
+		dashboard.Use(identityMiddleware())
 		{
 			dashboard.GET("/summary", func(c *gin.Context) {
 				HandleDashboardSummary(c, taskManager)
 			})
 		}
-		// 提供给第三方的api
-		taskApi := appSecurity.Group("/taskapi")
+		// 提供给第三方的api（独立 key-only 组：与浏览器 session 分离）
+		taskApi := v1.Group("/app/taskapi")
+		taskApi.Use(requireAgentAPIKey())
 		{
 			// 创建任务
 			taskApi.POST("/tasks", func(c *gin.Context) {
@@ -337,7 +364,7 @@ func RunWebServer(options *version.Options) {
 
 		// system — data directory auto-sync & version check
 		system := v1.Group("/system")
-		system.Use(setupIdentityMiddleware())
+		system.Use(identityMiddleware())
 		{
 			system.POST("/update-data", HandleTriggerDataUpdate)
 			system.GET("/update-data", HandleGetUpdateStatus)
@@ -347,8 +374,8 @@ func RunWebServer(options *version.Options) {
 		}
 	}
 
-	// Swagger UI - 必须在 NoRoute 之前注册
-	r.GET("/docs/*any", func(c *gin.Context) {
+	// Swagger UI - 必须在 NoRoute 之前注册（session 保护）
+	r.GET("/docs/*any", sessionAuthIfEnabled(), func(c *gin.Context) {
 		if c.Request.URL.Path == "/docs/" {
 			c.Redirect(302, "/docs/index.html")
 		} else {

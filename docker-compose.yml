@@ -11,6 +11,7 @@ services:
       - UPLOAD_DIR=/app/uploads
       - DB_PATH=/app/db/tasks.db
       - TZ=Asia/Shanghai
+      - AIG_AGENT_API_KEY=${AIG_AGENT_API_KEY:-zhuque}
       - AIG_API_CHECKER_URL=http://agent:8000
     volumes:
       - ./data:/app/data
@@ -39,6 +40,7 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - AIG_SERVER=webserver:8088
+      - AIG_AGENT_API_KEY=${AIG_AGENT_API_KEY:-zhuque}
       - AIG_API_CHECKER_ROOT_PATH=/api-checker
       - AIG_API_CHECKER_DATA_DIR=/api-checker-data
       - AIG_API_CHECKER_MAX_JOBS=${AIG_API_CHECKER_MAX_JOBS:-20}
