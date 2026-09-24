@@ -325,10 +325,13 @@ export default function TaskDetailPage() {
     toast.success(label('detailPanel.shareUrlCopied', '分享链接已复制'));
   };
 
+  // 体检/战役：受测对象通信已在 模型往来→受测目标通信 按角色分组展示，
+  // 顶层"受测对象往来通信" Tab 冗余，隐藏（其他任务类型保留——那是它们唯一的 trace 视图）
+  const hasRoleComm = THREE_ROLE_TYPES.includes(task?.type ?? '');
   const tabs: { key: TabKey; icon: React.ElementType; label: string; badge?: number }[] = [
     { key: 'console', icon: Terminal, label: label('platform.taskDetail.tabConsole', '控制台') },
-    { key: 'target-comm', icon: MessagesSquare, label: label('platform.taskDetail.tabTargetComm', '受测对象往来通信'), badge: traceCount || undefined },
-    { key: 'model-comm', icon: Brain, label: label('platform.taskDetail.tabModelComm', '模型往来通信') },
+    ...(!hasRoleComm ? [{ key: 'target-comm' as TabKey, icon: MessagesSquare, label: label('platform.taskDetail.tabTargetComm', '受测对象往来通信'), badge: traceCount || undefined }] : []),
+    { key: 'model-comm', icon: Brain, label: label('platform.taskDetail.tabModelComm', '模型往来通信'), badge: hasRoleComm ? traceCount || undefined : undefined },
     { key: 'report', icon: FileBarChart2, label: label('platform.taskDetail.tabReport', '报告') },
   ];
 
@@ -477,8 +480,8 @@ export default function TaskDetailPage() {
                 </div>
               </div>
             )}
-            {/* Tab 2 受测对象往来通信 */}
-            {tab === 'target-comm' && (
+            {/* Tab 2 受测对象往来通信（仅非三角色类型：体检/战役已收敛进 模型往来→受测目标通信） */}
+            {tab === 'target-comm' && !hasRoleComm && (
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 <TraceStreamView traces={task.traces || []} />
               </div>
