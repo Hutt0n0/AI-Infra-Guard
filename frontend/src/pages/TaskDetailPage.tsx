@@ -25,6 +25,33 @@ import { ShellModeContext } from '../components/platform/PlatformShell';
 
 type TabKey = 'console' | 'target-comm' | 'model-comm' | 'report';
 
+/**
+ * 评估模型往来视图：过滤 phase==='judge' 的 messageTrace（请求=case 输入 +
+ * 目标响应摘要，响应=score/reason 判定结果）。引擎侧 red_teamer/campaign
+ * runner 已在判定调用处补 trace；旧任务无 judge trace 时显示诚实空态。
+ */
+function EvalCommView({ task }: { task: NonNullable<ReturnType<typeof useTaskDetail>['task']> }) {
+  const { t, ready } = useTranslation();
+  const judgeTraces = React.useMemo(
+    () => (task.traces || []).filter(tr => tr.phase === 'judge'),
+    [task.traces]
+  );
+  const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
+
+  if (judgeTraces.length === 0) {
+    return (
+      <div className="flex-1 grid place-items-center text-[13px] text-plat-muted px-8 text-center">
+        {label(
+          'platform.taskDetail.evalModelEmpty',
+          '该任务没有评估模型的判定流水（旧版本引擎的任务未记录评估调用；新任务将在此展示每个 case 的评分请求与判定结果）'
+        )}
+      </div>
+    );
+  }
+  // 复用目标通信的双栏流水视图（请求/响应配对、方向筛选齐全）
+  return <TraceStreamView traces={judgeTraces} />;
+}
+
 /** 模型往来 Tab：从 task.plan 的 toolUsed.actionLog 提取全部 LLM 调用 */
 function extractLlmCalls(task: NonNullable<ReturnType<typeof useTaskDetail>['task']>): Array<LlmTrace & { key: string; stepTitle: string; time?: Date }> {
   const calls: Array<LlmTrace & { key: string; stepTitle: string; time?: Date }> = [];
@@ -47,8 +74,7 @@ function extractLlmCalls(task: NonNullable<ReturnType<typeof useTaskDetail>['tas
 }
 
 /** 模型往来 Tab — LLM 调用按 stage 分组，左侧列表 + 右侧完整 messages 往来 */
-function ModelCommView({ task }: { task: NonNullable<ReturnType<typeof useTaskDetail>['task']> }) {
-  const { t, ready } = useTranslation();
+function ModelCommView({ task }: { task: NonNullable<ReturnType<typeof useTaskDetail>['task']> }) {  const { t, ready } = useTranslation();
   const calls = React.useMemo(() => extractLlmCalls(task), [task]);
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
 
@@ -484,12 +510,7 @@ export default function TaskDetailPage() {
                 {modelSubTab === 'scan' || task.type !== 'Model-Redteam-Report' ? (
                   <ModelCommView task={task} />
                 ) : (
-                  <div className="flex-1 grid place-items-center text-[13px] text-plat-muted px-8 text-center">
-                    {label(
-                      'platform.taskDetail.evalModelEmpty',
-                      '评估模型（评分判定）的调用在当前版本的执行引擎中不单独记录往来流水——其判定结果体现在报告 Tab 的逐项评分与 extraBody.vulnerabilityResults 中。待引擎侧补齐 eval 模型 trace 记录后此处自动展示。'
-                    )}
-                  </div>
+                  <EvalCommView task={task} />
                 )}
               </div>
             )}
