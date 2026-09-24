@@ -604,7 +604,7 @@ interface TraceCall {
   lastTime?: Date;
 }
 
-export const TraceStreamView: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces }) => {
+const TraceStreamViewBase: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces }) => {
   const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
@@ -984,3 +984,8 @@ const TraceCallDetail: React.FC<{ call: TraceCall; fmtTime: (d?: Date) => string
 };
 
 export default ScanProgressConsole;
+
+
+// 大列表性能：任务详情页 silentRefresh 会生成新 task 对象，memo 保证 traces 引用
+// 不变时（增量缓冲模式）跳过整个双栏列表重渲染。
+export const TraceStreamView = React.memo(TraceStreamViewBase);

@@ -953,7 +953,14 @@ func HandleGetTaskDetail(c *gin.Context, tm *TaskManager) {
 	log.Infof("开始获取任务详情: trace_id=%s, sessionId=%s, username=%s", traceID, sessionId, username)
 
 	// 调用TaskManager获取任务详情
-	detail, err := tm.GetTaskDetail(sessionId, username, traceID)
+	// 增量轮询：?messagesFrom=<rowid> 只返回新增事件（大任务性能优化）
+	messagesFrom := int64(0)
+	if v := c.Query("messagesFrom"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
+			messagesFrom = n
+		}
+	}
+	detail, err := tm.GetTaskDetail(sessionId, username, traceID, messagesFrom)
 	if err != nil {
 		log.Errorf("获取任务详情失败: trace_id=%s, sessionId=%s, username=%s, error=%v", traceID, sessionId, username, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
