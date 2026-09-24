@@ -33,6 +33,16 @@ import (
 	"github.com/Tencent/AI-Infra-Guard/internal/gologger"
 )
 
+// AgentAPIKey agent/三方调用鉴权密钥：环境变量 AIG_AGENT_API_KEY 优先，
+// 未配置时回退 legacy 默认值 "zhuque"（服务端未配置该 env 时会自动生成
+// 新密钥并打日志横幅——部署时必须让两侧一致，详见部署文档）。
+func AgentAPIKey() string {
+	if v := strings.TrimSpace(os.Getenv("AIG_AGENT_API_KEY")); v != "" {
+		return v
+	}
+	return "zhuque"
+}
+
 // DownloadFile 下载文件
 // path 参数必须由调用方在调用前完成路径安全校验（防止路径穿越），
 // 本函数仅负责 HTTP 下载写入，不做路径验证。
@@ -55,7 +65,7 @@ func DownloadFile(server, sessionId, uri, path string) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-APIKey", "zhuque")
+	req.Header.Set("X-APIKey", AgentAPIKey())
 
 	// 发送 POST 请求
 	resp, err := client.Do(req)
@@ -135,7 +145,7 @@ func UploadFile(server, filePath string) (*UploadFileResponse, error) {
 
 	// 设置 Content-Type
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("X-APIKey", "zhuque")
+	req.Header.Set("X-APIKey", AgentAPIKey())
 
 	// 发送请求
 	client := &http.Client{}
@@ -173,7 +183,7 @@ func GetEvaluationsDetail(server, name string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %v", err)
 	}
-	req.Header.Set("X-APIKey", "zhuque")
+	req.Header.Set("X-APIKey", AgentAPIKey())
 
 	// 发送请求
 	client := &http.Client{}
@@ -217,7 +227,7 @@ func LoadRemoteFingerPrints(hostname string) ([]parser.FingerPrint, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-APIKey", "zhuque")
+	req.Header.Set("X-APIKey", AgentAPIKey())
 
 	// 发送请求
 	client := &http.Client{}
@@ -262,7 +272,7 @@ func LoadRemoteVulStruct(api string) ([]json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-APIKey", "zhuque")
+	req.Header.Set("X-APIKey", AgentAPIKey())
 
 	// 发送请求
 	client := &http.Client{}

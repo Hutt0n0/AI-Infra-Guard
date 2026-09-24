@@ -3,6 +3,7 @@
  * 后端返回的 coverage 字段说明各指标口径；assetDomain/scoreDist/topComponents
  * 暂无数据支撑（coverage 为 false），前端对应卡片显示空态而非 mock。
  */
+import { apiFetch } from './http';
 
 const API_BASE = '/api/v1/dashboard';
 
@@ -52,7 +53,7 @@ export async function fetchDashboardSummary(params?: { taskType?: string; timeRa
   if (params?.taskType && params.taskType !== 'all') search.set('taskType', params.taskType);
   if (params?.timeRange) search.set('timeRange', params.timeRange);
   const qs = search.toString();
-  const response = await fetch(`${API_BASE}/summary${qs ? `?${qs}` : ''}`);
+  const response = await apiFetch(`${API_BASE}/summary${qs ? `?${qs}` : ''}`);
   const responseData = await response.json();
   if (responseData.status !== 0) {
     throw new Error(responseData.message || '获取 Dashboard 数据失败');

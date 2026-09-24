@@ -23,10 +23,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
+	"github.com/Tencent/AI-Infra-Guard/common/utils"
 	"github.com/Tencent/AI-Infra-Guard/internal/gologger"
 
 	"github.com/google/uuid"
@@ -164,8 +166,13 @@ func (a *Agent) connect() error {
 		return err
 	}
 	dialer := websocket.DefaultDialer
-	conn, _, err := dialer.Dial(u.String(), nil)
+	// 服务端在 upgrade 前校验 X-APIKey（AIG_AGENT_API_KEY，两侧需一致）
+	hdr := http.Header{"X-APIKey": []string{utils.AgentAPIKey()}}
+	conn, resp, err := dialer.Dial(u.String(), hdr)
 	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusUnauthorized {
+			return fmt.Errorf("agent WebSocket 认证被拒（401）: 请确认环境变量 AIG_AGENT_API_KEY 与服务端一致")
+		}
 		return err
 	}
 	conn.SetReadLimit(1024 * 1024 * 5)

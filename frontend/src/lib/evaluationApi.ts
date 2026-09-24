@@ -1,4 +1,5 @@
 import { EvaluationListResponse } from '../types';
+import { apiFetch } from './http';
 
 const API_BASE_URL = '/api/v1/knowledge';
 
@@ -15,7 +16,7 @@ export const evaluationApi = {
     if (params?.q) searchParams.append('q', params.q);
     
     const url = `${API_BASE_URL}/evaluations${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     return response.json();
   },
 

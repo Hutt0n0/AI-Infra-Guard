@@ -8,7 +8,9 @@ import {
   ScrollText,
   X,
   Bot,
-  RefreshCw
+  RefreshCw,
+  KeyRound,
+  Users
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { toast } from 'sonner';
@@ -17,17 +19,21 @@ import KnowledgeBaseSettings, { KnowledgeBaseSettingsRef } from './management/Kn
 import AgentManagementDialog from './management/AgentManagementDialog';
 import LanguageSwitcher from './LanguageSwitcher';
 import Changelog from './Changelog';
+import AccountTab from './management/AccountTab';
+import UserManagementTab from './management/UserManagementTab';
+import { useAuth } from '../context/AuthContext';
 // The open-source build always shows the "Update data" button (used to sync the latest community fingerprint/vulnerability databases)
 const showUpdateDataButton = true;
 
 interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'plugins' | 'models' | 'agents' | 'language' | 'changelog';
+  initialTab?: 'plugins' | 'models' | 'agents' | 'language' | 'changelog' | 'account' | 'users';
 }
 
 const SettingsDialog = ({ isOpen, onClose, initialTab = 'plugins' }: SettingsDialogProps) => {
   const { t } = useTranslation();
+  const auth = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [changelogVersion, setChangelogVersion] = useState<string>('');
   const [updating, setUpdating] = useState(false);
@@ -122,6 +128,8 @@ const SettingsDialog = ({ isOpen, onClose, initialTab = 'plugins' }: SettingsDia
   }, []);
 
   const menuItems = [
+    { id: 'account', icon: KeyRound, label: t('auth.account') },
+    ...(auth.role === 'admin' ? [{ id: 'users', icon: Users, label: t('auth.userManagement') }] : []),
     { id: 'models', icon: Database, label: t('task.modelConfig') },
     { id: 'agents', icon: Bot, label: t('task.agentConfig') },
     { id: 'plugins', icon: Blocks, label: t('task.pluginManagement') },
@@ -180,6 +188,8 @@ const SettingsDialog = ({ isOpen, onClose, initialTab = 'plugins' }: SettingsDia
                     </h2>
                 </div>
                 <div className="flex-1 overflow-hidden relative flex flex-col">
+                    {activeTab === 'account' && <AccountTab />}
+                    {activeTab === 'users' && <UserManagementTab />}
                     {activeTab === 'plugins' && <KnowledgeBaseSettings ref={knowledgeBaseRef} />}
                     {activeTab === 'models' && <ModelManagementSettings />}
                     {activeTab === 'agents' && <AgentManagementDialog />}
