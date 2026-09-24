@@ -734,6 +734,9 @@ class AttackSimulator:
             purpose=purpose,
             custom_prompt=custom_prompt,
         )
+        # 授权测试语境声明（同 async 路径）
+        from cli.generator_context import authorized_context
+        prompt = authorized_context() + "\n\n" + prompt
         if self.using_native_model:
             # For models that support schema validation directly
             res, _ = self.simulator_model.generate(
@@ -766,6 +769,10 @@ class AttackSimulator:
             purpose=purpose,
             custom_prompt=custom_prompt,
         )
+        # 授权测试语境声明：降低泛化模型因自身安全策略拒答生成用例的概率
+        # （对 prompt 正文零改动，仅前缀注入；兼容 sync/async 两条路径）
+        from cli.generator_context import authorized_context
+        prompt = authorized_context() + "\n\n" + prompt
 
         if self.using_native_model:
             # For models that support schema validation directly
