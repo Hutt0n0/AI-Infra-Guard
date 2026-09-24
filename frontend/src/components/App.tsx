@@ -21,9 +21,11 @@ import { useVersionCheck } from '../hooks/useVersionCheck';
  * dev(ac3053a6) 的「执行控制台结束后仍可达」能力在平台层的等价实现位于
  * platform/task/TaskDetailPane.tsx（8.6.2）——本文件不再承载旧工作台状态。
  *
- * 认证（2026-09-24）：/login 全站唯一开放路由；其余所有页面（含 /report
- * 分享页与 /poison-detect）经 RequireAuth 门控——服务端 AIG_AUTH_DISABLE=1
- * 时 RequireAuth 直接放行（旧行为平价）。
+ * 认证（2026-09-24）：
+ * - AuthProvider 包裹全部路由（/login 也在内——LoginPage 消费 useAuth），
+ *   其全局 401 监听对登录页无副作用（登录页路径被监听器显式忽略）。
+ * - RequireAuth 在 AuthProvider 内层、除 /login 外的全部路由上做
+ *   /api/v1/auth/me 门控；AIG_AUTH_DISABLE=1 时放行（旧行为平价）。
  */
 const PlatformEntry: React.FC = () => {
   // Check for a new platform version on page open and once per day; notify the user when available
@@ -44,15 +46,15 @@ const App: React.FC = () => {
   }
 
   return (
-    <Routes>
-      {/* 登录页：全站唯一免认证路由 */}
-      <Route path="/login" element={<LoginPage />} />
-      {/* 其余全部路由要求登录态（RequireAuth gating AppProvider，避免未登录触发数据加载） */}
-      <Route
-        path="*"
-        element={
-          <RequireAuth>
-            <AuthProvider>
+    <AuthProvider>
+      <Routes>
+        {/* 登录页：全站唯一免认证路由（在 AuthProvider 内、RequireAuth 外） */}
+        <Route path="/login" element={<LoginPage />} />
+        {/* 其余全部路由要求登录态（RequireAuth gating AppProvider，避免未登录触发数据加载） */}
+        <Route
+          path="*"
+          element={
+            <RequireAuth>
               <Routes>
                 <Route path="/report/:sessionId" element={<ReportPage />} />
                 <Route path="/poison-detect" element={<LLMProxyDetectPage />} />
@@ -71,11 +73,11 @@ const App: React.FC = () => {
                   }
                 />
               </Routes>
-            </AuthProvider>
-          </RequireAuth>
-        }
-      />
-    </Routes>
+            </RequireAuth>
+          }
+        />
+      </Routes>
+    </AuthProvider>
   );
 };
 
