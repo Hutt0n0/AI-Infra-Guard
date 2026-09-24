@@ -41,11 +41,12 @@ from cli.aig_logger import logger, messageTrace
 # Per-call attack context: {"attack_method": str, "vulnerability": str, "turn": int, "phase": str}
 trace_context: ContextVar[dict] = ContextVar("trace_context", default={})
 
-# judge 判定进行中标记：simulator_model 与 evaluate_model 常是同一 Python 对象
+# 评估/翻译进行中标记：simulator_model 与 evaluate_model 常是同一 Python 对象
 # （用户未配独立 simulator 时 cli_run.py 直接别名），simulator wrapper 会对
-# metric 内部的评估调用误拦截打标——metric wrapper 先置此标记，simulator
-# wrapper 读到即透传不 emit。
-in_judge_context: ContextVar[bool] = ContextVar("in_judge_context", default=False)
+# metric 内部的评估调用、报告阶段的 reason 翻译调用误拦截打标——这些调用各由
+# 自己的 wrapper/上下文负责（judge wrapper 打 judge 标，翻译不属攻击生成不打
+# 标），置位期间 simulator wrapper 透传不 emit。
+suppress_simulator_trace: ContextVar[bool] = ContextVar("suppress_simulator_trace", default=False)
 
 # 传输层附加信息（AgentTargetModel._call_agent 写入，traced wrapper 读出并
 # 并入 trace meta）：{"session_id": str, "wire_capture": str}——wire_capture 为
@@ -195,19 +196,19 @@ def traced_metric_a_measure(metric, endpoint: str = None):
         # phase 用 override 传入——不能 set_trace_context(phase=...) 整体覆盖 ctx，
         # 否则调用方设置的 attack_method/vulnerability/turn 全被清掉。
         # in_judge 标记：抑制 simulator wrapper 对同一对象（model 别名）的误拦截
-        judge_token = in_judge_context.set(True)
+        suppress_token = suppress_simulator_trace.set(True)
         _emit("request", trace_id, resolved_endpoint, getattr(test_case, "input", "") or "", req_meta,
               phase_override="judge")
         start = time.time()
         try:
             score = await original(test_case, *args, **kwargs)
         except Exception as e:  # noqa: BLE001
-            in_judge_context.reset(judge_token)
+            suppress_simulator_trace.reset(suppress_token)
             _emit("error", trace_id, resolved_endpoint, str(e), {"elapsed_ms": int((time.time() - start) * 1000)},
                   phase_override="judge")
             raise
         resp_payload = f"score={metric.score}\nreason={metric.reason or ''}"
-        in_judge_context.reset(judge_token)
+        suppress_simulator_trace.reset(suppress_token)
         _emit("response", trace_id, resolved_endpoint, resp_payload,
               {"elapsed_ms": int((time.time() - start) * 1000), "score": metric.score},
               phase_override="judge")
@@ -255,7 +256,7 @@ def traced_simulator_model(model):
         return m
 
     async def a_generate(*args, **kwargs):
-        if in_judge_context.get():
+        if suppress_simulator_trace.get():
             return await orig_async(*args, **kwargs)  # judge 判定内部调用：已由 judge wrapper 打标
         prompt = args[0] if args else (kwargs.get("prompt") or "")
         trace_id = uuid.uuid4().hex
@@ -279,7 +280,7 @@ def traced_simulator_model(model):
 
     if orig_sync is not None:
         def generate(*args, **kwargs):
-            if in_judge_context.get():
+            if suppress_simulator_trace.get():
                 return orig_sync(*args, **kwargs)  # judge 判定内部调用
             prompt = args[0] if args else (kwargs.get("prompt") or "")
             trace_id = uuid.uuid4().hex
