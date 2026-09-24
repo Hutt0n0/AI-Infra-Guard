@@ -40,7 +40,9 @@ export interface TaskDetailRaw {
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
-  messages: Array<{ type: string; id?: string; timestamp?: number; event?: any }>;
+  messages: Array<{ type: string; id?: string; timestamp?: number; event?: any; rowid?: number }>;
+  lastRowID?: number;
+  incremental?: boolean;
 }
 
 /** SSE 事件类型（ChatArea 监听的全集） */
@@ -129,8 +131,9 @@ export async function fetchTaskSummaries(params?: { q?: string; taskType?: strin
   return (responseData.data.tasks ?? []) as TaskSummary[];
 }
 
-export async function fetchTaskDetailRaw(sessionId: string): Promise<TaskDetailRaw> {
-  const response = await apiFetch(`${API_BASE}/${sessionId}`);
+export async function fetchTaskDetailRaw(sessionId: string, messagesFrom?: number): Promise<TaskDetailRaw> {
+  const qs = messagesFrom && messagesFrom > 0 ? `?messagesFrom=${messagesFrom}` : '';
+  const response = await apiFetch(`${API_BASE}/${sessionId}${qs}`);
   const responseData = await response.json();
   if (responseData.status !== 0) {
     throw new Error(responseData.message || '获取任务详情失败');
