@@ -345,6 +345,25 @@ func (tm *TaskManager) dispatchTask(sessionId string, traceID string) error {
 				log.Errorf("无效的模型ID类型: trace_id=%s, sessionId=%s, modelID=%v", traceID, sessionId, v)
 			}
 		}
+		// 体检任务默认模型兜底：表单提示"未选模型时将使用平台默认模型"，但此前
+		// dispatchTask 没有对应逻辑——缺 model_id 时 params.model 为空，Python 端
+		// 崩在 len(None) 只报"系统出现了点小问题"。此处兑现该语义：取模型库第一个。
+		if task.Task == agent.TaskTypeModelRedteamReport {
+			if _, hasModel := enhancedParams["model"]; !hasModel {
+				if models, err := tm.modelStore.GetAllModels(); err == nil && len(models) > 0 {
+					first := models[0]
+					enhancedParams["model"] = &database.ModelParams{
+						Model:  first.ModelName,
+						Token:  first.Token,
+						BaseUrl: first.BaseURL,
+						Limit:  1000,
+					}
+					log.Infof("体检任务未指定模型，使用默认模型: trace_id=%s, sessionId=%s, model=%s", traceID, sessionId, first.ModelName)
+				} else {
+					return fmt.Errorf("未指定分析模型且模型库为空：请先在「设置 → 模型配置」中添加模型")
+				}
+			}
+		}
 		if evalModelStr, exists := task.Params["eval_model_id"]; exists {
 			evalModelId, ok := evalModelStr.(string)
 			if ok {

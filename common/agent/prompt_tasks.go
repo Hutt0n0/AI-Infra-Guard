@@ -158,6 +158,11 @@ func (m *ModelRedteamReport) Execute(ctx context.Context, request TaskRequest, c
 		argv = append(argv, "--agent_provider", tmpFile.Name())
 	}
 
+	// 扫描驱动模型必填：params 无 model_id 时（用户未选模型/表单漏传）此前会让
+	// Python 端崩在 len(None) 上，只报"系统出现了点小问题"——用户无从排查。
+	if len(param.Model) == 0 {
+		return fmt.Errorf("未指定扫描驱动模型：请在创建体检任务时选择分析模型（或联系管理员检查默认模型配置）")
+	}
 	for _, model := range param.Model {
 		if model.Limit == 0 {
 			model.Limit = 1000
@@ -169,14 +174,20 @@ func (m *ModelRedteamReport) Execute(ctx context.Context, request TaskRequest, c
 	}
 
 	evalParams, err := getDefaultEvalModel()
-	if err == nil {
+	if err != nil {
+		// env 兜底不可用时看 params.eval_model；两者皆空则复用扫描模型
+		// （RedTeamer 本就支持 evaluation_model 缺省=models[0]，但空字符串参数
+		// 会让 Python 走 create_model('') 分支而崩——宁可显式传扫描模型）
+		if param.EvalModel.Model != "" {
+			evalParams = &param.EvalModel
+		} else if len(param.Model) > 0 {
+			evalParams = &param.Model[0]
+		}
+	}
+	if evalParams != nil {
 		argv = append(argv, "--evaluate_model", evalParams.Model)
 		argv = append(argv, "--eval_base_url", evalParams.BaseUrl)
 		argv = append(argv, "--eval_api_key", evalParams.Token)
-	} else {
-		argv = append(argv, "--evaluate_model", param.EvalModel.Model)
-		argv = append(argv, "--eval_base_url", param.EvalModel.BaseUrl)
-		argv = append(argv, "--eval_api_key", param.EvalModel.Token)
 	}
 
 	argv = append(argv, "--techniques", "Raw")

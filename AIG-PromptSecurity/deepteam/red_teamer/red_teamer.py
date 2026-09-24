@@ -33,7 +33,7 @@ from cli.aig_logger import logger
 from cli.aig_logger import (
     newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate
 )
-from cli.trace_utils import set_trace_context, traced_metric_a_measure
+from cli.trace_utils import set_trace_context, traced_metric_a_measure, suppress_simulator_trace
 import uuid
 
 from deepeval.models import DeepEvalBaseLLM
@@ -176,7 +176,11 @@ Direct translation without separators"""
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_prompt}
             ]
-            translated = self.evaluation_model.generate(messages=messages)
+            token = suppress_simulator_trace.set(True)
+            try:
+                translated = self.evaluation_model.generate(messages=messages)
+            finally:
+                suppress_simulator_trace.reset(token)
         except Exception as e:
             logger.exception(e)
             return text
@@ -202,7 +206,13 @@ Direct translation without separators"""
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_prompt}
             ]
-            translated = await self.evaluation_model.a_generate(messages=messages)
+            # 翻译不属攻击生成：evaluation_model 与 simulator_model 是同一对象时
+            # 会被 simulator wrapper 误标——置抑制标记透传
+            token = suppress_simulator_trace.set(True)
+            try:
+                translated = await self.evaluation_model.a_generate(messages=messages)
+            finally:
+                suppress_simulator_trace.reset(token)
         except Exception as e:
             logger.exception(e)
             return text
