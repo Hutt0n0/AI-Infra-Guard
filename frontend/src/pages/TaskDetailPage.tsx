@@ -9,7 +9,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Loader2, RefreshCw, Terminal, MessagesSquare, Brain, FileBarChart2,
-  X, ExternalLink, ArrowLeft, Gauge, Trash2, Link2, Copy,
+  X, ExternalLink, ArrowLeft, Gauge, Trash2, Link2, Copy, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskStatusBadge, TaskTypeBadge } from '../components/platform/primitives';
@@ -25,31 +25,38 @@ import { ShellModeContext } from '../components/platform/PlatformShell';
 
 type TabKey = 'console' | 'target-comm' | 'model-comm' | 'report';
 
-/**
- * 评估模型往来视图：过滤 phase==='judge' 的 messageTrace（请求=case 输入 +
- * 目标响应摘要，响应=score/reason 判定结果）。引擎侧 red_teamer/campaign
- * runner 已在判定调用处补 trace；旧任务无 judge trace 时显示诚实空态。
+/** 模型往来三角色视图：按 LLM 角色分离通信流水（体检/战役任务）。
+ *  - 受测目标：phase attack/pre-verify/connectivity/''（空 phase = 旧任务流量）
+ *  - 评估判定：phase judge（评分请求/判定结果）
+ *  - 攻击生成：phase simulator（攻击生成模型的调用——引擎 2026-09-24 起埋点）
+ *  各组复用 TraceStreamView 预过滤渲染；空组显示诚实说明。
  */
-function EvalCommView({ task }: { task: NonNullable<ReturnType<typeof useTaskDetail>['task']> }) {
+const THREE_ROLE_TYPES = ['Model-Redteam-Report', 'Campaign'];
+
+function RoleCommView({ task, role }: { task: NonNullable<ReturnType<typeof useTaskDetail>['task']>; role: 'target' | 'judge' | 'simulator' }) {
   const { t, ready } = useTranslation();
-  const judgeTraces = React.useMemo(
-    () => (task.traces || []).filter(tr => tr.phase === 'judge'),
-    [task.traces]
-  );
+  const traces = React.useMemo(() => task.traces || [], [task.traces]);
+  const roleTraces = React.useMemo(() => {
+    if (role === 'judge') return traces.filter(tr => tr.phase === 'judge');
+    if (role === 'simulator') return traces.filter(tr => tr.phase === 'simulator');
+    return traces.filter(tr => tr.phase === 'attack' || tr.phase === 'pre-verify' || tr.phase === 'connectivity' || !tr.phase);
+  }, [traces, role]);
   const label = (key: string, fallback: string) => (ready ? t(key, fallback) : fallback);
 
-  if (judgeTraces.length === 0) {
+  if (roleTraces.length === 0) {
+    const emptyText =
+      role === 'judge'
+        ? label('platform.taskDetail.evalModelEmpty', '该任务没有评估模型的判定流水（旧版本引擎的任务未记录评估调用；新任务将在此展示每个 case 的评分请求与判定结果）')
+        : role === 'simulator'
+        ? label('platform.taskDetail.simulatorModelEmpty', '该任务没有攻击生成模型的调用流水（旧版本引擎未记录该角色；新任务将在此展示每次攻击生成的提示与产出）')
+        : label('platform.taskDetail.noTargetComm', '该任务没有目标通信流水');
     return (
       <div className="flex-1 grid place-items-center text-[13px] text-plat-muted px-8 text-center">
-        {label(
-          'platform.taskDetail.evalModelEmpty',
-          '该任务没有评估模型的判定流水（旧版本引擎的任务未记录评估调用；新任务将在此展示每个 case 的评分请求与判定结果）'
-        )}
+        {emptyText}
       </div>
     );
   }
-  // 复用目标通信的双栏流水视图（请求/响应配对、方向筛选齐全）
-  return <TraceStreamView traces={judgeTraces} />;
+  return <TraceStreamView traces={roleTraces} />;
 }
 
 /** 模型往来 Tab：从 task.plan 的 toolUsed.actionLog 提取全部 LLM 调用 */
@@ -211,7 +218,7 @@ export default function TaskDetailPage() {
   const { task, isLoading, error, refresh, silentRefresh } = useTaskDetail(sessionId ?? null);
   const detailState = useTaskDetailState();
   const [tab, setTab] = React.useState<TabKey>('console');
-  const [modelSubTab, setModelSubTab] = React.useState<'scan' | 'eval'>('scan');
+  const [modelSubTab, setModelSubTab] = React.useState<'target' | 'judge' | 'simulator'>('target');
   const [terminating, setTerminating] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [consoleStageFilter, setConsoleStageFilter] = React.useState<string | null>(null);
@@ -476,41 +483,50 @@ export default function TaskDetailPage() {
                 <TraceStreamView traces={task.traces || []} />
               </div>
             )}
-            {/* Tab 3 模型往来通信（扫描驱动 LLM / 体检评估模型子 Tab） */}
+            {/* Tab 3 模型往来通信（体检/战役：三角色分组；其余类型：actionLog 视图） */}
             {tab === 'model-comm' && (
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                {task.type === 'Model-Redteam-Report' && (
+                {THREE_ROLE_TYPES.includes(task.type) && (
                   <div className="px-6 pt-2.5 pb-0 flex items-center gap-1 shrink-0 border-b" style={{ borderColor: 'var(--plat-grid)' }}>
-                    <button
-                      type="button"
-                      onClick={() => setModelSubTab('scan')}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md border-b-2 -mb-px cursor-pointer transition-colors',
-                        modelSubTab === 'scan' ? 'font-semibold' : 'text-plat-muted hover:text-plat-ink-2'
-                      )}
-                      style={{ borderColor: modelSubTab === 'scan' ? 'var(--brand)' : 'transparent', color: modelSubTab === 'scan' ? 'var(--ink)' : undefined }}
-                    >
-                      <Brain className="w-3.5 h-3.5" />
-                      {label('platform.taskDetail.scanModel', '扫描驱动模型')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setModelSubTab('eval')}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md border-b-2 -mb-px cursor-pointer transition-colors',
-                        modelSubTab === 'eval' ? 'font-semibold' : 'text-plat-muted hover:text-plat-ink-2'
-                      )}
-                      style={{ borderColor: modelSubTab === 'eval' ? 'var(--brand)' : 'transparent', color: modelSubTab === 'eval' ? 'var(--ink)' : undefined }}
-                    >
-                      <Gauge className="w-3.5 h-3.5" />
-                      {label('platform.taskDetail.evalModel', '评估模型')}
-                    </button>
+                    {([
+                      { key: 'target', icon: Brain, labelKey: 'platform.taskDetail.roleTargetComm', fallback: '受测目标通信' },
+                      { key: 'judge', icon: Gauge, labelKey: 'platform.taskDetail.roleJudgeComm', fallback: '评估判定' },
+                      { key: 'simulator', icon: Sparkles, labelKey: 'platform.taskDetail.roleSimulatorComm', fallback: '攻击生成' },
+                    ] as const).map(({ key, icon: Icon, labelKey, fallback }) => {
+                      const count = new Set(
+                        (task.traces || [])
+                          .filter(tr => key === 'target'
+                            ? (tr.phase === 'attack' || tr.phase === 'pre-verify' || tr.phase === 'connectivity' || !tr.phase)
+                            : key === 'judge' ? tr.phase === 'judge' : tr.phase === 'simulator')
+                          .map(tr => tr.traceId)
+                      ).size;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setModelSubTab(key)}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-md border-b-2 -mb-px cursor-pointer transition-colors',
+                            modelSubTab === key ? 'font-semibold' : 'text-plat-muted hover:text-plat-ink-2'
+                          )}
+                          style={{ borderColor: modelSubTab === key ? 'var(--brand)' : 'transparent', color: modelSubTab === key ? 'var(--ink)' : undefined }}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                          {label(labelKey, fallback)}
+                          {count > 0 && (
+                            <span className="text-[10px] rounded-full px-1.5 py-px" style={{ background: 'var(--surface-mid)', color: 'var(--plat-muted)' }}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
-                {modelSubTab === 'scan' || task.type !== 'Model-Redteam-Report' ? (
+                {!THREE_ROLE_TYPES.includes(task.type) ? (
                   <ModelCommView task={task} />
                 ) : (
-                  <EvalCommView task={task} />
+                  <RoleCommView task={task} role={modelSubTab} />
                 )}
               </div>
             )}

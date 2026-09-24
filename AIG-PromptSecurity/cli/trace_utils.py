@@ -86,17 +86,18 @@ def emit_target_trace(direction: str, endpoint: str, payload: str, meta: dict, t
     _emit(direction, trace_id or uuid.uuid4().hex, endpoint, payload, meta)
 
 
-def _emit(direction: str, trace_id: str, endpoint: str, payload: str, meta: dict) -> None:
+def _emit(direction: str, trace_id: str, endpoint: str, payload: str, meta: dict,
+          phase_override: str = None, tool_override: str = None) -> None:
     ctx = trace_context.get() or {}
     try:
         logger.message_trace(messageTrace(
             trace_id=trace_id,
             direction=direction,
-            tool="target_dialogue",
+            tool=tool_override or "target_dialogue",
             stepId=str(ctx.get("step_id", "2")),
             endpoint=endpoint,
             payload=payload or "",
-            phase=str(ctx.get("phase", "")),
+            phase=phase_override if phase_override is not None else str(ctx.get("phase", "")),
             attack_method=str(ctx.get("attack_method", "")),
             vulnerability=str(ctx.get("vulnerability", "")),
             turn=int(ctx.get("turn", 0) or 0),
@@ -185,20 +186,105 @@ def traced_metric_a_measure(metric, endpoint: str = None):
     async def wrapped(test_case, *args, **kwargs):
         trace_id = uuid.uuid4().hex
         req_meta = {"role": "judge", "target_output": (getattr(test_case, "actual_output", "") or "")[:2000]}
-        set_trace_context(phase="judge")
-        _emit("request", trace_id, resolved_endpoint, getattr(test_case, "input", "") or "", req_meta)
+        # phase 用 override 传入——不能 set_trace_context(phase=...) 整体覆盖 ctx，
+        # 否则调用方设置的 attack_method/vulnerability/turn 全被清掉
+        _emit("request", trace_id, resolved_endpoint, getattr(test_case, "input", "") or "", req_meta,
+              phase_override="judge")
         start = time.time()
         try:
             score = await original(test_case, *args, **kwargs)
         except Exception as e:  # noqa: BLE001
-            _emit("error", trace_id, resolved_endpoint, str(e), {"elapsed_ms": int((time.time() - start) * 1000)})
-            set_trace_context(phase="")
+            _emit("error", trace_id, resolved_endpoint, str(e), {"elapsed_ms": int((time.time() - start) * 1000)},
+                  phase_override="judge")
             raise
         resp_payload = f"score={metric.score}\nreason={metric.reason or ''}"
         _emit("response", trace_id, resolved_endpoint, resp_payload,
-              {"elapsed_ms": int((time.time() - start) * 1000), "score": metric.score})
-        set_trace_context(phase="")
+              {"elapsed_ms": int((time.time() - start) * 1000), "score": metric.score},
+              phase_override="judge")
         return score
 
     metric.a_measure = wrapped
     return metric
+
+
+def _schema_result_payload(res) -> str:
+    """Schema 调用结果是 pydantic 模型（如 SyntheticDataList）——序列化后作为
+    response payload；普通字符串原样返回。"""
+    if isinstance(res, str):
+        return res
+    try:
+        return res.model_dump_json()
+    except Exception:
+        try:
+            return json.dumps(res, default=str, ensure_ascii=False)
+        except Exception:
+            return str(res)
+
+
+def traced_simulator_model(model):
+    """实例级 patch simulator 模型的 a_generate/generate：每次攻击生成 LLM 调用
+    发一对 messageTrace（phase='simulator'，tool='simulator_dialogue'）。
+
+    为何在实例级而非调用点：AttackSimulator 与所有 enhance 内部的攻击实现共享
+    同一实例（多轮攻击持有注入的 simulator_model 引用），一处 patch 全覆盖——
+    体检 baseline 生成、enhance 调度、campaign 的 a_generate_schema/裸回退。
+    TypeError 不发 error trace：本代码库把 a_generate(prompt, schema=...) 的
+    TypeError 当控制流信号（调用方捕获后回退裸调用），发 trace 会制造噪音。
+    """
+    try:
+        endpoint = model.get_model_name() if hasattr(model, "get_model_name") else "simulator"
+    except Exception:
+        endpoint = "simulator"
+    orig_async = model.a_generate
+    orig_sync = getattr(model, "generate", None)
+
+    def _meta(start, extra=None):
+        m = {"elapsed_ms": int((time.time() - start) * 1000), "role": "simulator"}
+        if extra:
+            m.update(extra)
+        return m
+
+    async def a_generate(*args, **kwargs):
+        prompt = args[0] if args else (kwargs.get("prompt") or "")
+        trace_id = uuid.uuid4().hex
+        _emit("request", trace_id, endpoint, prompt if isinstance(prompt, str) else str(prompt),
+              {"role": "simulator"}, phase_override="simulator", tool_override="simulator_dialogue")
+        start = time.time()
+        try:
+            res = await orig_async(*args, **kwargs)
+        except TypeError:
+            raise  # schema kwarg 控制流：调用方捕获后回退，静默
+        except Exception as e:  # noqa: BLE001
+            _emit("error", trace_id, endpoint, str(e), _meta(start),
+                  phase_override="simulator", tool_override="simulator_dialogue")
+            raise
+        payload = _schema_result_payload(res)
+        _emit("response" if payload else "error", trace_id, endpoint, payload or "",
+              _meta(start), phase_override="simulator", tool_override="simulator_dialogue")
+        return res
+
+    model.a_generate = a_generate
+
+    if orig_sync is not None:
+        def generate(*args, **kwargs):
+            prompt = args[0] if args else (kwargs.get("prompt") or "")
+            trace_id = uuid.uuid4().hex
+            _emit("request", trace_id, endpoint, prompt if isinstance(prompt, str) else str(prompt),
+                  {"role": "simulator"}, phase_override="simulator", tool_override="simulator_dialogue")
+            start = time.time()
+            try:
+                res = orig_sync(*args, **kwargs)
+            except TypeError:
+                raise
+            except Exception as e:  # noqa: BLE001
+                _emit("error", trace_id, endpoint, str(e), _meta(start),
+                      phase_override="simulator", tool_override="simulator_dialogue")
+                raise
+            payload = _schema_result_payload(res)
+            _emit("response" if payload else "error", trace_id, endpoint, payload or "",
+                  _meta(start), phase_override="simulator", tool_override="simulator_dialogue")
+            return res
+
+        model.generate = generate
+
+    return model

@@ -6,6 +6,7 @@ import ChatArea from '../ChatArea';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { useTaskDetailState } from '../../hooks/useTaskDetailState';
 import { cn } from '../../lib/utils';
+import DockTaskSidebar from './DockTaskSidebar';
 
 /**
  * AI 助手常驻入口 — 浮球 + 右侧抽屉（内嵌 ChatArea 对话内核）
@@ -21,6 +22,16 @@ export default function AssistantDock() {
   const [open, setOpen] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [consoleStageFilter, setConsoleStageFilter] = React.useState<string | null>(null);
+  // dock 任务侧栏折叠态（持久化；提升至此以便 overlay 计算让位偏移）
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState<boolean>(() => {
+    try { return localStorage.getItem('aig.dock.sidebarCollapsed') === '1'; } catch { return false; }
+  });
+  const toggleSidebarCollapsed = React.useCallback(() => {
+    setSidebarCollapsed(prev => {
+      try { localStorage.setItem('aig.dock.sidebarCollapsed', prev ? '0' : '1'); } catch { /* ignore */ }
+      return !prev;
+    });
+  }, []);
   // 执行控制台浮层（dev ac3053a6 平台等价：任意任务状态可开）
   const [consoleOpen, setConsoleOpen] = React.useState(false);
 
@@ -119,8 +130,9 @@ export default function AssistantDock() {
             </div>
           </div>
 
-          {/* 抽屉内容：ChatArea + 详情浮层 */}
+          {/* 抽屉内容：任务侧栏 + ChatArea + 详情浮层 */}
           <div className="flex-1 min-h-0 relative flex">
+            <DockTaskSidebar collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebarCollapsed} />
             <div className="flex-1 min-w-0">
               <ChatArea
                 selectedStep={detailState.selectedStep}
@@ -136,7 +148,7 @@ export default function AssistantDock() {
             {currentTask && (detailState.selectedStep || consoleOpen) && (
               <div
                 className="absolute right-0 top-0 h-full bg-white border-l z-10 flex flex-col"
-                style={{ width: 'min(55vw, 900px)', borderColor: 'var(--outline)' }}
+                style={{ width: 'min(55vw, 900px)', borderColor: 'var(--outline)', left: sidebarCollapsed ? 48 : 220 }}
               >
                 <div
                   className="flex items-center px-4 py-2.5 border-b shrink-0"

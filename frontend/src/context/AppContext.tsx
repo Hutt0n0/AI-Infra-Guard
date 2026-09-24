@@ -157,6 +157,7 @@ const AppContext = createContext<{
   actions: {
     loadTasks: () => Promise<void>;
     loadTask: (taskId: string) => Promise<void>;
+    switchTask: (taskId: string) => Promise<void>;
     createTask: (title: string, type: TaskType, sessionId?: string) => void;
     sendMessage: (taskId: string, content: string, attachments?: any[]) => void;
     startTask: (taskId: string) => void;
@@ -242,8 +243,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Load a single task's data
   const loadTask = async (taskId: string) => {
+    // 不派发全局 SET_LOADING：dock 内切换任务时底层页面（ReportPage 等消费
+    // isLoading）不能被闪全屏 loading
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
       const taskData = await fetchTaskDetailRaw(taskId);
 
       // Parse messages and assemble plan, result, traces and messages (shared with ReportPage)
@@ -346,8 +348,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'SET_CURRENT_TASK', payload: taskId });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: '获取任务详情失败' });
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  // switchTask dock 任务侧栏的切换动作：乐观切换 + 按需水合。
+  // 仅当本地无消息（ended/历史任务）时拉详情——运行中任务的消息由 SSE 实时
+  // 追加，拉快照会把 SSE 已收事件回放一遍（重复）。
+  const switchTask = async (taskId: string) => {
+    const task = stateRef.current.tasks.find(t => t.id === taskId);
+    if (!task || stateRef.current.currentTaskId === taskId) return;
+    dispatch({ type: 'SET_CURRENT_TASK', payload: taskId });
+    if (task.messages.length === 0) {
+      await loadTask(taskId);
     }
   };
 
@@ -693,6 +705,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const actions = {
     loadTasks,
     loadTask,
+    switchTask,
     createTask,
     sendMessage,
     startTask,

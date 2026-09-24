@@ -72,6 +72,13 @@ class AttackSimulator:
         self.simulator_model, self.using_native_model = initialize_model(
             simulator_model
         )
+        # 攻击生成模型调用补 trace（实例级 patch：baseline 生成、enhance 内部、
+        # campaign 的 schema 生成共享同一实例，一处包裹全覆盖）
+        try:
+            from cli.trace_utils import traced_simulator_model
+            self.simulator_model = traced_simulator_model(self.simulator_model)
+        except Exception:
+            pass  # trace 基础设施不可用时绝不阻断引擎
 
         # Define list of attacks and unaligned vulnerabilities
         self.simulated_attacks: List[SimulatedAttack] = []

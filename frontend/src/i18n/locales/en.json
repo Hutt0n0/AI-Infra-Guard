@@ -1288,7 +1288,13 @@
       "floatLabel": "AI Assistant",
       "tooltip": "AI Security Interviewer — launch scans, interpret reports, draft remediation via chat",
       "title": "AI Security Interviewer",
-      "openInTaskCenter": "Open in Task Center"
+      "openInTaskCenter": "Open in Task Center",
+      "sidebarTitle": "Tasks",
+      "sidebarRunning": "Running",
+      "sidebarRecent": "Recent",
+      "sidebarEmpty": "No tasks yet — start one from the assistant or a new scan",
+      "sidebarCollapse": "Collapse",
+      "sidebarExpand": "Expand task list"
     },
     "dashboard": {
       "pageSub": "AI red-team security posture · aggregated from scan tasks",
@@ -1530,8 +1536,6 @@
       "tabTargetComm": "Target Communications",
       "tabModelComm": "Model Communications",
       "tabReport": "Report",
-      "scanModel": "Scan-driving Model",
-      "evalModel": "Evaluation Model",
       "evalModelEmpty": "Evaluation-model (scoring) calls are not recorded as a separate trace stream by the current engine — their verdicts appear in the Report tab (per-item scores & vulnerabilityResults). This sub-tab will populate once the engine emits eval-model traces.",
       "noModelComm": "No model-call traces recorded for this task",
       "llmCall": "LLM Call",
@@ -1540,7 +1544,12 @@
       "copied": "Transcript copied",
       "share": "Copy share link",
       "reportPage": "Report page",
-      "openReportPage": "Open the shared report page"
+      "openReportPage": "Open the shared report page",
+      "roleTargetComm": "Target Communication",
+      "roleJudgeComm": "Evaluation",
+      "roleSimulatorComm": "Attack Generation",
+      "simulatorModelEmpty": "No attack-generation calls recorded for this task (legacy runs did not trace this role; new tasks will show each generation prompt and output here)",
+      "noTargetComm": "No target communication recorded for this task"
     },
     "logs": {
       "title": "Logs",
