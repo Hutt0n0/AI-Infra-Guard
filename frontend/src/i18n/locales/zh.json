@@ -1287,7 +1287,13 @@
       "floatLabel": "AI 助手",
       "tooltip": "AI 安全面试官 — 对话式发起扫描、解读报告、生成整改建议",
       "title": "AI 安全面试官",
-      "openInTaskCenter": "在任务中心打开"
+      "openInTaskCenter": "在任务中心打开",
+      "sidebarTitle": "任务列表",
+      "sidebarRunning": "运行中",
+      "sidebarRecent": "最近任务",
+      "sidebarEmpty": "暂无任务 — 通过 AI 助手或新建扫描发起",
+      "sidebarCollapse": "收起",
+      "sidebarExpand": "展开任务列表"
     },
     "dashboard": {
       "pageSub": "AI 红队安全态势 · 扫描任务产出聚合",
@@ -1529,8 +1535,6 @@
       "tabTargetComm": "受测对象往来通信",
       "tabModelComm": "模型往来通信",
       "tabReport": "报告",
-      "scanModel": "扫描驱动模型",
-      "evalModel": "评估模型",
       "evalModelEmpty": "评估模型（评分判定）的调用在当前版本的执行引擎中不单独记录往来流水——其判定结果体现在报告 Tab 的逐项评分与 vulnerabilityResults 中。待引擎侧补齐 eval 模型 trace 记录后此处自动展示。",
       "noModelComm": "该任务没有记录模型调用明细",
       "llmCall": "LLM 调用",
@@ -1539,7 +1543,12 @@
       "copied": "已复制往来全文",
       "share": "复制分享链接",
       "reportPage": "报告页",
-      "openReportPage": "打开分享报告页"
+      "openReportPage": "打开分享报告页",
+      "roleTargetComm": "受测目标通信",
+      "roleJudgeComm": "评估判定",
+      "roleSimulatorComm": "攻击生成",
+      "simulatorModelEmpty": "该任务没有攻击生成模型的调用流水（旧版本引擎未记录该角色；新任务将在此展示每次攻击生成的提示与产出）",
+      "noTargetComm": "该任务没有目标通信流水"
     },
     "logs": {
       "title": "日志中心",
