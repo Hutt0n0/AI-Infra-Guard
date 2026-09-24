@@ -604,21 +604,27 @@ interface TraceCall {
   lastTime?: Date;
 }
 
+const TRACE_WINDOW_INIT = 120;   // 初始渲染条数（call 粒度）
+const TRACE_WINDOW_STEP = 200;   // 滚动加载步长
+
 const TraceStreamViewBase: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces }) => {
   const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
   const [directionFilter, setDirectionFilter] = useState<'all' | 'request' | 'response' | 'error'>('all');
   const bottomRef = useRef<HTMLDivElement>(null);
+  // 窗口化渲染：大数据量（数万 trace）全量 DOM 是 tab 切换卡顿主因——
+  // 只渲染窗口内条目，滚动到顶部附近逐步加载更早的记录
+  const [windowSize, setWindowSize] = useState(TRACE_WINDOW_INIT);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
 
   // Group traces into calls by traceId (request/response/error triplets)
   const { calls, counts } = useMemo(() => {
     const map = new Map<string, TraceCall>();
     const order: string[] = [];
     const c = { request: 0, response: 0, error: 0 };
-    for (const tr of [...traces].sort(
-      (a, b) => a.timestamp - b.timestamp
-    )) {
+    // traces 已按时间序（DB rowid 序 + SSE 增量 append 序）——省掉 O(n log n) sort
+    for (const tr of traces) {
       c.request += tr.direction === 'request' ? 1 : 0;
       c.response += tr.direction === 'response' ? 1 : 0;
       c.error += tr.direction === 'error' ? 1 : 0;
@@ -655,6 +661,25 @@ const TraceStreamViewBase: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces
     );
   }, [calls, directionFilter]);
 
+  // 窗口切片：follow（看最新）→ 末尾 windowSize 条；翻历史 → 头部 windowSize 条
+  const visibleCalls = useMemo(() => {
+    if (filtered.length <= windowSize) return filtered;
+    return follow ? filtered.slice(-windowSize) : filtered.slice(0, windowSize);
+  }, [filtered, windowSize, follow]);
+
+  // 滚动到顶部哨兵：加载更早记录
+  useEffect(() => {
+    const el = topSentinelRef.current;
+    if (!el) return;
+    const ob = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && filtered.length > windowSize) {
+        setWindowSize(w => w + TRACE_WINDOW_STEP);
+      }
+    }, { rootMargin: '200px' });
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [filtered.length, windowSize]);
+
   useEffect(() => {
     if (follow && filtered.length > 0) {
       setSelectedKey(filtered[filtered.length - 1].key);
@@ -686,7 +711,12 @@ const TraceStreamViewBase: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces
             {t('scanConsole.noTraces', '暂无目标通信记录（等待与受测目标交互）')}
           </div>
         )}
-        {filtered.map(call => (
+        {filtered.length > windowSize && !follow && (
+          <div ref={topSentinelRef} className="text-center text-[10px] text-gray-400 py-2">
+            {`${t('scanConsole.loadMore', '滚动加载更早记录')}（${visibleCalls.length} / ${filtered.length}）`}
+          </div>
+        )}
+        {visibleCalls.map(call => (
           <TraceCallRow
             key={call.key}
             call={call}
@@ -698,6 +728,11 @@ const TraceStreamViewBase: React.FC<{ traces: MessageTraceEntry[] }> = ({ traces
             fmtTime={fmtTime}
           />
         ))}
+        {filtered.length > windowSize && follow && (
+          <div className="text-center text-[10px] text-gray-400 py-2">
+            {`${t('scanConsole.olderHidden', '已省略更早记录')}：${filtered.length - windowSize}`}
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
