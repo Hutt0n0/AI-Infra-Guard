@@ -2,6 +2,7 @@
  * Python 实验室(/ide)API 客户端 — 脚本 CRUD / 运行 / 依赖 / venv。
  * 与其他 lib/*.ts 一致:plain fetch + {status, message, data} envelope。
  */
+import { apiFetch } from './http';
 
 const BASE = '/api/v1/app/ide';
 
@@ -69,7 +70,7 @@ export class IdeApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<IdeEnvelope<T>> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await apiFetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   });

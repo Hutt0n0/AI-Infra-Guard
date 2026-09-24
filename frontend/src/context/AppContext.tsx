@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { env } from '../config/env';
 import { fetchTaskSummaries, fetchTaskDetailRaw, assembleTaskFromDetail, mapBackendStatus } from '../lib/taskApi';
+import { apiFetch } from '../lib/http';
 
 // Initial state
 const initialState: AppState = {
@@ -578,7 +579,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await fetch('/api/v1/app/tasks');
+      const response = await apiFetch('/api/v1/app/tasks');
       const responseData = await response.json();
       
       if (responseData.status !== 0) {

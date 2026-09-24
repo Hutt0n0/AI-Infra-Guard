@@ -3,6 +3,7 @@
  * 事件→dispatch 的翻译逻辑（processQueueItem）不在此层，仍留在 ChatArea。
  */
 import { ExecutionStep, Message, TaskType } from '../types';
+import { apiFetch } from './http';
 
 const API_BASE = '/api/v1/app/tasks';
 
@@ -66,7 +67,7 @@ export interface TaskCommandPayload {
 
 /** 向运行中的对抗战役任务下发指令（POST /tasks/:id/command） */
 export async function sendTaskCommand(sessionId: string, payload: TaskCommandPayload): Promise<{ status: number; message?: string }> {
-  const response = await fetch(`${API_BASE}/${sessionId}/command`, {
+  const response = await apiFetch(`${API_BASE}/${sessionId}/command`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -119,7 +120,7 @@ export async function fetchTaskSummaries(params?: { q?: string; taskType?: strin
   if (params?.q) search.set('q', params.q);
   if (params?.taskType) search.set('taskType', params.taskType);
   const qs = search.toString();
-  const response = await fetch(`${API_BASE}${qs ? `?${qs}` : ''}`);
+  const response = await apiFetch(`${API_BASE}${qs ? `?${qs}` : ''}`);
   const responseData = await response.json();
   if (responseData.status !== 0) {
     throw new Error(responseData.message || '获取任务列表失败');
@@ -129,7 +130,7 @@ export async function fetchTaskSummaries(params?: { q?: string; taskType?: strin
 }
 
 export async function fetchTaskDetailRaw(sessionId: string): Promise<TaskDetailRaw> {
-  const response = await fetch(`${API_BASE}/${sessionId}`);
+  const response = await apiFetch(`${API_BASE}/${sessionId}`);
   const responseData = await response.json();
   if (responseData.status !== 0) {
     throw new Error(responseData.message || '获取任务详情失败');
@@ -377,7 +378,7 @@ export function assembleTaskFromDetail(taskData: TaskDetailRaw) {
 }
 
 export async function createTaskRequest(body: Record<string, unknown>): Promise<{ status: number; message?: string; data?: { title?: string; sessionId?: string } }> {
-  const response = await fetch(API_BASE, {
+  const response = await apiFetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -386,7 +387,7 @@ export async function createTaskRequest(body: Record<string, unknown>): Promise<
 }
 
 export async function renameTaskRequest(sessionId: string, title: string): Promise<{ status: number; message?: string }> {
-  const response = await fetch(`${API_BASE}/${sessionId}`, {
+  const response = await apiFetch(`${API_BASE}/${sessionId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title }),
@@ -395,7 +396,7 @@ export async function renameTaskRequest(sessionId: string, title: string): Promi
 }
 
 export async function deleteTaskRequest(sessionId: string): Promise<{ status: number; message?: string }> {
-  const response = await fetch(`${API_BASE}/${sessionId}`, {
+  const response = await apiFetch(`${API_BASE}/${sessionId}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -403,7 +404,7 @@ export async function deleteTaskRequest(sessionId: string): Promise<{ status: nu
 }
 
 export async function terminateTaskRequest(sessionId: string): Promise<{ status: number; message?: string }> {
-  const response = await fetch(`${API_BASE}/${sessionId}/terminate`, {
+  const response = await apiFetch(`${API_BASE}/${sessionId}/terminate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -435,7 +436,7 @@ async function uploadFileChunked(file: File): Promise<UploadedAttachment> {
     formData.append('totalChunks', totalChunks.toString());
     formData.append('chunk', chunk);
 
-    const response = await fetch(`${API_BASE}/uploadChunk`, {
+    const response = await apiFetch(`${API_BASE}/uploadChunk`, {
       method: 'POST',
       body: formData,
     });
@@ -450,7 +451,7 @@ async function uploadFileChunked(file: File): Promise<UploadedAttachment> {
     }
   }
 
-  const mergeResponse = await fetch(`${API_BASE}/mergeChunks`, {
+  const mergeResponse = await apiFetch(`${API_BASE}/mergeChunks`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -489,7 +490,7 @@ export async function uploadTaskAttachments(files: File[]): Promise<{
       const formData = new FormData();
       formData.append('file', file);
 
-      const uploadResponse = await fetch(`${API_BASE}/uploadFile`, {
+      const uploadResponse = await apiFetch(`${API_BASE}/uploadFile`, {
         method: 'POST',
         body: formData,
       });

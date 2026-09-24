@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, ListChecks, ShieldCheck, FileBarChart2,
   BookOpen, Bot, Settings, Radar, Store, FileSearch, AlertTriangle, Bug, ScrollText,
-  FlaskConical, Swords,
+  FlaskConical, Swords, LogOut,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import SettingsDialog from '../SettingsDialog';
 
@@ -54,6 +55,7 @@ export default function SideNav() {
   const { t, ready } = useTranslation();
   const navigate = useNavigate();
   const { state } = useApp();
+  const auth = useAuth();
   const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   const runningCount = state.tasks.filter(task => task.status === 'running').length;
@@ -172,21 +174,31 @@ export default function SideNav() {
         ))}
       </nav>
 
-      {/* Foot user */}
+      {/* Foot user — 登录用户 + 登出 */}
       <div className="mt-auto border-t pt-3" style={{ borderColor: 'var(--outline)' }}>
         <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] hover:bg-plat-surface-low transition-colors">
           <div
             className="w-[30px] h-[30px] rounded-full grid place-items-center font-bold text-xs shrink-0"
             style={{ background: 'var(--brand-fixed)', color: 'var(--brand-deep)' }}
           >
-            AI
+            {(auth.username || 'A').slice(0, 1).toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <div className="font-semibold text-[12.5px] text-plat-ink truncate">public_user</div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-[12.5px] text-plat-ink truncate">{auth.username || 'public_user'}</div>
             <div className="text-[11px] text-plat-muted">
-              {ready ? t('platform.nav.administrator', '管理员') : '管理员'} · {env()}
+              {auth.role === 'admin'
+                ? (ready ? t('platform.nav.administrator', '管理员') : '管理员')
+                : (ready ? t('auth.roleUser', '用户') : '用户')} · {env()}
             </div>
           </div>
+          <button
+            type="button"
+            title={ready ? t('auth.logout', '登出') : '登出'}
+            onClick={async () => { await auth.logout(); }}
+            className="p-1.5 rounded-[8px] text-plat-muted hover:text-plat-ink hover:bg-white transition-colors cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 

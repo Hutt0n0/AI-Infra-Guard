@@ -1,4 +1,5 @@
 // AIG platform version-check related APIs
+import { apiFetch } from './http';
 
 // Project Release page, used as the default fallback link
 export const AIG_RELEASE_URL = 'https://github.com/Tencent/AI-Infra-Guard/releases';
@@ -23,7 +24,7 @@ export interface SystemVersionResponse {
 export const systemApi = {
   // Query whether a new platform version is available
   async checkVersion(): Promise<SystemVersionResponse> {
-    const response = await fetch('/api/v1/system/version');
+    const response = await apiFetch('/api/v1/system/version');
     if (!response.ok) {
       throw new Error(`Failed to check version: ${response.status}`);
     }
