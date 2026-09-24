@@ -163,3 +163,42 @@ def traced_async_model_callback(model_callback, endpoint: str):
         return output
 
     return wrapped
+
+
+def traced_metric_a_measure(metric, endpoint: str = None):
+    """Wrap a metric's ``a_measure`` so the judge LLM call is emitted as a
+    pair of messageTrace events (request = case input, response = score/reason).
+
+    此前评估模型的判定调用完全无留痕，平台无法审计每个 case 的评分依据。
+    包装在调用点（red_teamer / campaign runner），metric 子类零改动。
+    phase 固定 "judge"；attack_method/vulnerability 继承调用方 trace 上下文。
+    """
+    resolved_endpoint = endpoint
+    if not resolved_endpoint:
+        try:
+            resolved_endpoint = metric.model.get_model_name() if metric.model is not None else "evaluator"
+        except Exception:
+            resolved_endpoint = "evaluator"
+
+    original = metric.a_measure
+
+    async def wrapped(test_case, *args, **kwargs):
+        trace_id = uuid.uuid4().hex
+        req_meta = {"role": "judge", "target_output": (getattr(test_case, "actual_output", "") or "")[:2000]}
+        set_trace_context(phase="judge")
+        _emit("request", trace_id, resolved_endpoint, getattr(test_case, "input", "") or "", req_meta)
+        start = time.time()
+        try:
+            score = await original(test_case, *args, **kwargs)
+        except Exception as e:  # noqa: BLE001
+            _emit("error", trace_id, resolved_endpoint, str(e), {"elapsed_ms": int((time.time() - start) * 1000)})
+            set_trace_context(phase="")
+            raise
+        resp_payload = f"score={metric.score}\nreason={metric.reason or ''}"
+        _emit("response", trace_id, resolved_endpoint, resp_payload,
+              {"elapsed_ms": int((time.time() - start) * 1000), "score": metric.score})
+        set_trace_context(phase="")
+        return score
+
+    metric.a_measure = wrapped
+    return metric

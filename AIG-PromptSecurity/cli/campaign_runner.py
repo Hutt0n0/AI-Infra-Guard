@@ -42,7 +42,7 @@ from cli.aig_logger import logger
 from cli.aig_logger import (
     newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate, campaignNotice
 )
-from cli.trace_utils import traced_async_model_callback, set_trace_context
+from cli.trace_utils import traced_async_model_callback, set_trace_context, traced_metric_a_measure
 from deepteam.red_teamer import RedTeamer
 from deepteam.attacks import BaseAttack
 from deepteam.attacks.attack_simulator.attack_simulator import SimulatedAttack
@@ -744,6 +744,8 @@ class CampaignRunner:
             model=evaluate_model,
             async_mode=async_mode,
         )
+        # 评估模型判定调用补 trace（每 case 的评分请求/响应对可审计）
+        metric = traced_metric_a_measure(metric)
         logger.status_update(statusUpdate(stepId="1", brief=logger.translated_msg("Campaign initialization"),
                                           description=logger.translated_msg("Load metric: HarmMetric"),
                                           status="completed"))

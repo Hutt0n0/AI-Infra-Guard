@@ -33,7 +33,7 @@ from cli.aig_logger import logger
 from cli.aig_logger import (
     newPlanStep, statusUpdate, toolUsed, actionLog, resultUpdate
 )
-from cli.trace_utils import set_trace_context
+from cli.trace_utils import set_trace_context, traced_metric_a_measure
 import uuid
 
 from deepeval.models import DeepEvalBaseLLM
@@ -297,6 +297,8 @@ Direct translation without separators"""
                     metric: BaseRedTeamingMetric = metrics_map.get(
                         vulnerability_type
                     )()
+                    # 评估模型判定调用补 trace（此前零留痕，平台无法审计评分依据）
+                    metric = traced_metric_a_measure(metric)
                     num_simulated_attacks = len(simulated_attacks)
 
                     logger.tool_used(toolUsed(stepId="2", tool_id=tool_id, brief=logger.translated_msg(
@@ -563,6 +565,8 @@ Direct translation without separators"""
                 return red_teaming_test_case
 
             metric: BaseRedTeamingMetric = metrics_map[vulnerability_type]()
+            # 评估模型判定调用补 trace（同上）
+            metric = traced_metric_a_measure(metric)
             # Publish attack context so the traced model_callback can label
             # the target-communication trace events (per coroutine, via ContextVar).
             set_trace_context(
