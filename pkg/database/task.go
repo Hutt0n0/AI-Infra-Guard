@@ -69,6 +69,7 @@ type Session struct {
 
 // TaskMessage 任务消息表（存储所有类型的事件消息）
 type TaskMessage struct {
+	RowID     int64          `gorm:"-" json:"rowid"`                                // SQLite rowid（增量轮询锚点，查询后回填）
 	ID        string         `gorm:"primaryKey;column:id" json:"id"`               // 消息ID（前端生成的对话ID）
 	SessionID string         `gorm:"column:session_id;not null" json:"session_id"` // 会话ID（也是任务ID）
 	Type      string         `gorm:"column:type;not null" json:"type"`             // liveStatus, planUpdate, statusUpdate, toolUsed等
@@ -268,6 +269,38 @@ func (s *TaskStore) GetSessionMessages(sessionID string) ([]*TaskMessage, error)
 	err := s.db.Where("session_id = ?", sessionID).Order("timestamp ASC").Find(&messages).Error
 	if err != nil {
 		return nil, err
+	}
+	return messages, nil
+}
+
+// GetSessionMessagesAfter 增量查询：只取 rowid 大于 afterRowID 的事件（运行中
+// 详情轮询用——大任务全量回放每次数十 MB，增量后每次仅新增事件）。
+// afterRowID<=0 时行为与全量一致。rowid 是 SQLite 隐式自增列，插入序即时间序。
+func (s *TaskStore) GetSessionMessagesAfter(sessionID string, afterRowID int64) ([]*TaskMessage, error) {
+	// afterRowID<=0 → 条件恒真，等价全量（统一走同一回填逻辑）
+	var messages []*TaskMessage
+	err := s.db.Where("session_id = ? AND rowid > ?", sessionID, afterRowID).
+		Order("rowid ASC").Find(&messages).Error
+	if err != nil {
+		return nil, err
+	}
+	// 精确回填 rowid（gorm Find 不映射隐式列，需显式 Select）
+	var rows []struct {
+		RowID int64
+		ID    string
+	}
+	if err := s.db.Table("task_messages").Select("rowid AS row_id, id").
+		Where("session_id = ? AND rowid > ?", sessionID, afterRowID).
+		Order("rowid ASC").Scan(&rows).Error; err == nil {
+		m := make(map[string]int64, len(rows))
+		for _, r := range rows {
+			m[r.ID] = r.RowID
+		}
+		for i := range messages {
+			if v, ok := m[messages[i].ID]; ok {
+				messages[i].RowID = v
+			}
+		}
 	}
 	return messages, nil
 }

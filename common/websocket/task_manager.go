@@ -1529,7 +1529,7 @@ func (tm *TaskManager) cleanupTask(sessionId string) {
 }
 
 // GetTaskDetail 获取任务详情
-func (tm *TaskManager) GetTaskDetail(sessionId string, username string, traceID string) (map[string]interface{}, error) {
+func (tm *TaskManager) GetTaskDetail(sessionId string, username string, traceID string, messagesFrom int64) (map[string]interface{}, error) {
 	log.Infof("开始获取任务详情: trace_id=%s, sessionId=%s, username=%s", traceID, sessionId, username)
 
 	// 检查任务是否存在
@@ -1545,8 +1545,10 @@ func (tm *TaskManager) GetTaskDetail(sessionId string, username string, traceID 
 		return nil, fmt.Errorf("无权限查看此任务")
 	}
 
-	// 获取任务的所有消息
-	messages, err := tm.taskStore.GetSessionMessages(sessionId)
+	// 增量模式：messagesFrom=rowid 时只返回新增事件（大任务运行中轮询每次
+	// 全量回放数十 MB，前端轮询高频时页面卡顿+带宽浪费；首拉不带该参数走全量）
+	// afterRowID<=0 时 GetSessionMessagesAfter 委托全量查询并回填 RowID
+	messages, err := tm.taskStore.GetSessionMessagesAfter(sessionId, messagesFrom)
 	if err != nil {
 		log.Errorf("获取任务消息失败: trace_id=%s, sessionId=%s, error=%v", traceID, sessionId, err)
 		return nil, fmt.Errorf("获取任务消息失败: %v", err)
@@ -1570,6 +1572,7 @@ func (tm *TaskManager) GetTaskDetail(sessionId string, username string, traceID 
 
 	// 处理消息列表（make 保证空消息序列化为 [] 而非 null——前端 for..of 迭代依赖）
 	messageList := make([]map[string]interface{}, 0)
+	lastRowID := messagesFrom
 	for _, msg := range messages {
 		// 解析事件数据
 		var eventData map[string]interface{}
@@ -1582,7 +1585,11 @@ func (tm *TaskManager) GetTaskDetail(sessionId string, username string, traceID 
 			"type":      msg.Type,
 			"timestamp": msg.Timestamp,
 			"event":     eventData,
+			"rowid":     msg.RowID,
 		})
+		if msg.RowID > lastRowID {
+			lastRowID = msg.RowID
+		}
 	}
 
 	// 处理任务参数
@@ -1612,6 +1619,8 @@ func (tm *TaskManager) GetTaskDetail(sessionId string, username string, traceID 
 		"taskType":       session.TaskType,
 		"attachments":    attachments,
 		"messages":       messageList,
+		"lastRowID":      lastRowID,
+		"incremental":    messagesFrom > 0,
 		"source":         source,
 		"sourceLabel":    sourceLabel,
 	}

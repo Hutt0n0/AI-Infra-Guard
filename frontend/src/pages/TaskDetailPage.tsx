@@ -22,6 +22,7 @@ import { terminateTaskRequest, deleteTaskRequest, openTaskSSE } from '../lib/tas
 import type { LlmTrace } from '../components/detailPanel/ScanProgressConsole';
 import { cn } from '../lib/utils';
 import { ShellModeContext } from '../components/platform/PlatformShell';
+import type { MessageTraceEntry } from '../types';
 
 type TabKey = 'console' | 'target-comm' | 'model-comm' | 'report';
 
@@ -33,9 +34,12 @@ type TabKey = 'console' | 'target-comm' | 'model-comm' | 'report';
  */
 const THREE_ROLE_TYPES = ['Model-Redteam-Report', 'Campaign'];
 
-function RoleCommView({ task, role }: { task: NonNullable<ReturnType<typeof useTaskDetail>['task']>; role: 'target' | 'judge' | 'simulator' }) {
+function RoleCommView({ task, role, extraTraces }: { task: NonNullable<ReturnType<typeof useTaskDetail>['task']>; role: 'target' | 'judge' | 'simulator'; extraTraces?: MessageTraceEntry[] }) {
   const { t, ready } = useTranslation();
-  const traces = React.useMemo(() => task.traces || [], [task.traces]);
+  const traces = React.useMemo(() => {
+    const base = task.traces || [];
+    return extraTraces && extraTraces.length > 0 ? [...base, ...extraTraces] : base;
+  }, [task.traces, extraTraces]);
   const roleTraces = React.useMemo(() => {
     if (role === 'judge') return traces.filter(tr => tr.phase === 'judge');
     if (role === 'simulator') return traces.filter(tr => tr.phase === 'simulator');
@@ -236,6 +240,16 @@ export default function TaskDetailPage() {
   const dirtyRef = React.useRef(false);
   const throttleTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── 增量 messageTrace 缓冲：高频 trace 事件纯本地追加（不触发 API 全量拉取），
+  //    与 task.traces 合并渲染；结构性事件（plan/toolUsed/status）仍走节流 silentRefresh。
+  const [liveTraces, setLiveTraces] = React.useState<MessageTraceEntry[]>([]);
+  const baselineTraceCountRef = React.useRef(0);
+  React.useEffect(() => {
+    // 任务切换/全量刷新后：基线覆盖为后端 traces，清空缓冲
+    setLiveTraces([]);
+    baselineTraceCountRef.current = task?.traces?.length ?? 0;
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const requestRefresh = React.useCallback(() => {
     dirtyRef.current = true;
     if (throttleTimerRef.current) return; // 已有消费循环在跑
@@ -265,8 +279,37 @@ export default function TaskDetailPage() {
     if (!sessionId || !isRunning) return;
     setSseDown(false);
     const close = openTaskSSE(sessionId, {
-      onEvent: (type) => {
-        if (type !== 'connected') requestRefresh();
+      onEvent: (type, data) => {
+        if (type === 'connected') return;
+        if (type === 'messageTrace' && data?.event) {
+          // 高频事件本地追加：零 API 调用，页面不整树刷新
+          const ev = data.event;
+          setLiveTraces(prev => {
+            const entry: MessageTraceEntry = {
+              id: ev.id || `${Date.now()}-${prev.length}`,
+              traceId: ev.traceId || '',
+              direction: ev.direction || 'request',
+              tool: ev.tool || 'target_dialogue',
+              planStepId: ev.planStepId || '',
+              endpoint: ev.endpoint || '',
+              phase: ev.phase || '',
+              attackMethod: ev.attackMethod,
+              vulnerability: ev.vulnerability,
+              turn: ev.turn,
+              payload: ev.payload || '',
+              meta: ev.meta,
+              timestamp: ev.timestamp || Date.now() / 1000,
+            };
+            return prev.length > 4000 ? [...prev.slice(-3000), entry] : [...prev, entry];
+          });
+          return;
+        }
+        if (type === 'resultUpdate') {
+          // 终态：全量刷新拿报告
+          refresh();
+          return;
+        }
+        requestRefresh();
       },
       onError: () => setSseDown(true),
     });
@@ -279,7 +322,7 @@ export default function TaskDetailPage() {
     return () => clearInterval(timer);
   }, [sessionId, isRunning, sseDown, refresh]);
 
-  const traceCount = task?.traces?.length ?? 0;
+  const traceCount = (task?.traces?.length ?? 0) + liveTraces.length;
 
   const handleTerminate = async () => {
     if (!task) return;
@@ -497,7 +540,7 @@ export default function TaskDetailPage() {
                       { key: 'simulator', icon: Sparkles, labelKey: 'platform.taskDetail.roleSimulatorComm', fallback: '攻击生成' },
                     ] as const).map(({ key, icon: Icon, labelKey, fallback }) => {
                       const count = new Set(
-                        (task.traces || [])
+                        [...(task.traces || []), ...liveTraces]
                           .filter(tr => key === 'target'
                             ? (tr.phase === 'attack' || tr.phase === 'pre-verify' || tr.phase === 'connectivity' || !tr.phase)
                             : key === 'judge' ? tr.phase === 'judge' : tr.phase === 'simulator')
@@ -529,7 +572,7 @@ export default function TaskDetailPage() {
                 {!THREE_ROLE_TYPES.includes(task.type) ? (
                   <ModelCommView task={task} />
                 ) : (
-                  <RoleCommView task={task} role={modelSubTab} />
+                  <RoleCommView task={task} role={modelSubTab} extraTraces={liveTraces} />
                 )}
               </div>
             )}
