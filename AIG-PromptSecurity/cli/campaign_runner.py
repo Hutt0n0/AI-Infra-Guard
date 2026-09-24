@@ -533,6 +533,12 @@ class CampaignRunner:
                 feedback_block=feedback,
                 lang="Chinese" if lang.startswith("zh") else "the same language as the topic",
             )
+            # 生成阶段的 trace 上下文：simulator 发出的攻击生成调用带方法/轮次标签
+            # （attack_method 显式重设——修跨 case 上下文泄漏）
+            set_trace_context(
+                phase="simulator", attack_method=method_id,
+                vulnerability=self.topic[:120], turn=round_idx, step_id=worker_id,
+            )
             baseline = None
             try:
                 generated = await a_generate_schema(
@@ -567,7 +573,8 @@ class CampaignRunner:
             # useless（enhanced==baseline）照打：战役每轮必须真攻击，flag 记台账
             case["useless"] = bool(enhanced.useless)
 
-            # 3) 打目标（traced 回调自动发 messageTrace；多轮取末轮响应）
+            # 3) 打目标（traced 回调自动发 messageTrace；多轮取末轮响应）。
+            #    显式设 attack 阶段上下文（覆盖生成阶段的 simulator 标签）
             set_trace_context(
                 phase="attack", attack_method=case["attackMethod"],
                 vulnerability=self.topic[:120], turn=round_idx, step_id=worker_id,
