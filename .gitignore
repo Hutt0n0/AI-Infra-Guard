@@ -78,3 +78,9 @@ __pycache__/
 data/scripts/
 data/venvs/
 logs/script_runs/
+
+# 临时运维工具(忘记密码重置,含明文密码风险,永不入库)
+cmd/resetadmin/
+
+# 设计稿本地参照(规划文档引用的高保真稿副本,不入库)
+aig-pro-platform-redesign.html
