@@ -84,7 +84,7 @@ func TestHandleAgentEventMessageTrace(t *testing.T) {
 	assert.Len(t, msgs, 2)
 
 	// And must surface through the task-detail replay consumed by the frontend
-	detail, err := tm.GetTaskDetail(sessionId, "public_user", "test")
+	detail, err := tm.GetTaskDetail(sessionId, "public_user", "test", 0)
 	require.NoError(t, err)
 	messageList := detail["messages"].([]map[string]interface{})
 	var traceMsgs []map[string]interface{}

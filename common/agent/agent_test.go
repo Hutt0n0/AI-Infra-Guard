@@ -21,19 +21,53 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
 	"testing"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// TestLargeDataSend 测试发送大字节数据
+// newAgentTestServer 起一个本地 WebSocket 服务器供 agent 回环连接。
+// 返回 server 与一个 channel：每收到一条 agent 消息投递一条原始 payload。
+func newAgentTestServer(t *testing.T) (*httptest.Server, <-chan []byte) {
+	t.Helper()
+	received := make(chan []byte, 16)
+	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		for {
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+			received <- msg
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, received
+}
+
+// wsURL 把 httptest server URL 转成 ws:// 地址
+func wsURL(srv *httptest.Server) string {
+	return "ws" + strings.TrimPrefix(srv.URL, "http")
+}
+
+// TestLargeDataSend 测试发送大字节数据（本地回环 WebSocket 服务器，真实走 sendChan → conn 链路）
 func TestLargeDataSend(t *testing.T) {
-	// 创建Agent实例（不连接到真实服务器）
+	srv, received := newAgentTestServer(t)
+
 	agent := NewAgent(AgentConfig{
-		ServerURL: "ws://xx/api/v1/agents/ws", // 使用测试URL
+		ServerURL: wsURL(srv) + "/api/v1/agents/ws",
 		Info: AgentInfo{
 			ID:       "test-large-data",
 			HostName: "test-host",
@@ -42,11 +76,15 @@ func TestLargeDataSend(t *testing.T) {
 			Metadata: "",
 		},
 	})
-	err := agent.connect()
-	assert.NoError(t, err)
-	// 启动各种协程
+	require.NoError(t, agent.connect())
 	go agent.handleSend()
 	go agent.handleReceive()
+
+	// 注册消息应先到达
+	regMsg := <-received
+	var regEnvelope map[string]interface{}
+	require.NoError(t, json.Unmarshal(regMsg, &regEnvelope))
+	assert.Equal(t, "register", regEnvelope["type"])
 
 	// 创建大数据内容 - 生成约1MB的数据
 	largeContent := generateLargeContent(1024 * 1024) // 1MB
@@ -65,24 +103,28 @@ func TestLargeDataSend(t *testing.T) {
 		},
 	}
 
-	// 测试序列化大数据
-	jsonData, err := json.Marshal(largeResult)
-	assert.NoError(t, err, "大数据JSON序列化应该成功")
-
-	dataSize := len(jsonData)
-	t.Logf("生成的JSON数据大小: %d bytes (%.2f MB)", dataSize, float64(dataSize)/(1024*1024))
-
-	// 测试通过sendChan发送大数据（模拟真实发送）
+	// 测试通过 sendChan → conn 真实发送大数据
 	sessionId := "test-session-large-data"
+	require.NoError(t, agent.SendTaskResult(sessionId, largeResult))
 
-	// 发送大数据
-	err = agent.SendTaskResult(sessionId, largeResult)
-	assert.NoError(t, err, "发送大数据任务结果应该成功")
+	// 等待结果消息到达并校验完整性
+	resultMsg := <-received
+	var envelope struct {
+		Type    string          `json:"type"`
+		Content json.RawMessage `json:"content"`
+	}
+	require.NoError(t, json.Unmarshal(resultMsg, &envelope))
+	assert.Equal(t, "resultUpdate", envelope.Type)
 
-	// 等待一小段时间确保消息被处理
-	time.Sleep(5 * time.Second)
+	var update struct {
+		SessionId string                 `json:"sessionId"`
+		Event     map[string]interface{} `json:"event"`
+	}
+	require.NoError(t, json.Unmarshal(envelope.Content, &update))
+	assert.Equal(t, sessionId, update.SessionId)
+	assert.Equal(t, float64(len(largeContent)), update.Event["result"].(map[string]interface{})["data_size"])
 
-	t.Log("大字节数据发送测试完成")
+	t.Log("大字节数据发送测试完成（1MB 经真实 WebSocket 回环往返）")
 }
 
 // generateLargeContent 生成指定大小的大内容

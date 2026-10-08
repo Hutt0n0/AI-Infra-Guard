@@ -167,7 +167,7 @@ func TestSubmitTask_InvalidTaskType(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	resp := decodeAPIResponse(t, w)
 	assert.Equal(t, float64(1), resp["status"])
-	assert.Contains(t, resp["message"], "无效的任务类型")
+	assert.Contains(t, resp["message"], "unsupported task type")
 }
 
 func TestSubmitTask_MCPScan_MissingModelFields(t *testing.T) {
@@ -176,6 +176,7 @@ func TestSubmitTask_MCPScan_MissingModelFields(t *testing.T) {
 	r := newRouter(tm)
 
 	// model.model and model.token are required for mcp_scan
+	// (current error contract: "model.token is required when no default model is configured")
 	body := map[string]interface{}{
 		"type": "mcp_scan",
 		"content": map[string]interface{}{
@@ -187,7 +188,7 @@ func TestSubmitTask_MCPScan_MissingModelFields(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	resp := decodeAPIResponse(t, w)
 	assert.Equal(t, float64(1), resp["status"])
-	assert.Contains(t, resp["message"], "model.model")
+	assert.Contains(t, resp["message"], "model.token is required")
 }
 
 func TestSubmitTask_MCPScan_MissingToken(t *testing.T) {
@@ -302,7 +303,7 @@ func TestGetTaskStatus_InvalidIDFormat(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	resp := decodeAPIResponse(t, w)
 	assert.Equal(t, float64(1), resp["status"])
-	assert.Contains(t, resp["message"], "无效的任务ID格式")
+	assert.Contains(t, resp["message"], "invalid session ID format")
 }
 
 func TestGetTaskStatus_NotFound(t *testing.T) {
@@ -317,7 +318,7 @@ func TestGetTaskStatus_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	resp := decodeAPIResponse(t, w)
 	assert.Equal(t, float64(1), resp["status"])
-	assert.Contains(t, resp["message"], "任务不存在")
+	assert.Contains(t, resp["message"], "task not found")
 }
 
 func TestGetTaskStatus_ExistingSession(t *testing.T) {
@@ -367,7 +368,7 @@ func TestGetTaskResult_InvalidIDFormat(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	resp := decodeAPIResponse(t, w)
 	assert.Equal(t, float64(1), resp["status"])
-	assert.Contains(t, resp["message"], "无效的任务ID格式")
+	assert.Contains(t, resp["message"], "invalid session ID format")
 }
 
 func TestGetTaskResult_NoResults(t *testing.T) {
