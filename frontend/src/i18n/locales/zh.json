@@ -1577,6 +1577,9 @@
       "conflict.title": "脚本已被其他窗口修改。确定覆盖吗?",
       "console.empty": "从左侧选择或新建脚本",
       "deps": "安装依赖"
+    },
+    "settings": {
+      "pageSub": "账号安全、用户管理、模型与 Agent 配置、插件与语言偏好"
     }
   },
   "campaign": {

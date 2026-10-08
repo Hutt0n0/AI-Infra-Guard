@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
-import SettingsDialog from '../SettingsDialog';
 
 interface NavItemDef {
   key: string;
@@ -48,15 +47,13 @@ const NAV_ITEMS: NavItemDef[] = [
   { key: 'agents', to: '/agents', icon: Bot, section: 'system' },
   { key: 'logs', to: '/logs', icon: ScrollText, section: 'system' },
   { key: 'ide', to: '/ide', icon: FlaskConical, section: 'system' },
-  { key: 'settings', to: null, icon: Settings, section: 'system' },
+  { key: 'settings', to: '/settings', icon: Settings, section: 'system' },
 ];
 
 export default function SideNav() {
   const { t, ready } = useTranslation();
-  const navigate = useNavigate();
   const { state } = useApp();
   const auth = useAuth();
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   const runningCount = state.tasks.filter(task => task.status === 'running').length;
 
@@ -201,8 +198,6 @@ export default function SideNav() {
           </button>
         </div>
       </div>
-
-      <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </aside>
   );
 }

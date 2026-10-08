@@ -11,6 +11,7 @@ import JailbreakPage from '../../pages/JailbreakPage';
 import ReportsPage from '../../pages/ReportsPage';
 import TaskDetailPage from '../../pages/TaskDetailPage';
 import LogsPage from '../../pages/LogsPage';
+import SettingsPage from '../../pages/SettingsPage';
 import HelpDocumentPage from '../../pages/HelpDocumentPage';
 
 // Python 实验室懒加载:monaco 体积大(~5MB),不进首屏关键路径
@@ -40,6 +41,7 @@ export default function PlatformApp() {
           <Route path="knowledge" element={<RuleLibraryPage />} />
           <Route path="agents" element={<AgentsPage />} />
           <Route path="logs" element={<LogsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="ide" element={
             <React.Suspense fallback={<div className="p-8 text-sm text-plat-muted">加载 Python 实验室…</div>}>
               <IdePage />

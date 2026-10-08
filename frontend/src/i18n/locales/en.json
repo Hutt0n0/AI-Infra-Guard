@@ -1578,6 +1578,9 @@
       "conflict.title": "Script was modified in another window. Overwrite?",
       "console.empty": "Select or create a script on the left",
       "deps": "Install Dependencies"
+    },
+    "settings": {
+      "pageSub": "Account security, user management, model & agent config, plugins and language"
     }
   },
   "campaign": {
